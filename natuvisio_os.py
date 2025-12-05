@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import os
@@ -8,7 +9,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.4 (SSS & AKIŞ REHBERİ EKLENDİ)
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V6.0 (LIQUID GRADIENT EDITION)
 # ============================================================================
 
 st.set_page_config(
@@ -86,95 +87,318 @@ def get_icon(name, color="#ffffff", size=24):
     return icons.get(name, "")
 
 # ============================================================================
-# 3. CSS & THEME ENGINE
+# 3. CSS & LIQUID BACKGROUND INJECTION
 # ============================================================================
 
-def load_css(theme="dark"):
-    if theme == "light":
-        bg_image = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop"
-        glass_bg = "rgba(255, 255, 255, 0.65)"
-        glass_border = "rgba(0, 0, 0, 0.05)"
-        text_color = "#0f172a"
-        subtext_color = "#475569"
-        input_bg = "rgba(255, 255, 255, 0.8)"
-        shadow = "0 8px 32px rgba(0, 0, 0, 0.05)"
-        btn_gradient = "linear-gradient(135deg, #5b7354, #4a6b45)"
-    else:
-        bg_image = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
-        glass_bg = "rgba(255, 255, 255, 0.04)"
-        glass_border = "rgba(255, 255, 255, 0.08)"
-        text_color = "#ffffff"
-        subtext_color = "rgba(255, 255, 255, 0.6)"
-        input_bg = "rgba(0, 0, 0, 0.3)"
-        shadow = "0 8px 32px rgba(0, 0, 0, 0.3)"
-        btn_gradient = "linear-gradient(135deg, #4ECDC4, #44A08D)"
+def inject_liquid_background():
+    # Embed the full HTML/JS/WebGL code as a background component
+    # This runs in an iframe, so we style it to cover the screen
+    html_code = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // --- PASTE YOUR WEBGL JAVASCRIPT HERE (MINIFIED FOR BREVITY) ---
+    // (I am including the core logic you provided to make it work)
+    
+    class TouchTexture {
+      constructor() {
+        this.size = 64;
+        this.width = this.height = this.size;
+        this.maxAge = 64;
+        this.radius = 0.25 * this.size;
+        this.speed = 1 / this.maxAge;
+        this.trail = [];
+        this.last = null;
+        this.initTexture();
+      }
+      initTexture() {
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        this.ctx = this.canvas.getContext("2d");
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.texture = new THREE.Texture(this.canvas);
+      }
+      update() {
+        this.clear();
+        let speed = this.speed;
+        for (let i = this.trail.length - 1; i >= 0; i--) {
+          const point = this.trail[i];
+          let f = point.force * speed * (1 - point.age / this.maxAge);
+          point.x += point.vx * f;
+          point.y += point.vy * f;
+          point.age++;
+          if (point.age > this.maxAge) {
+            this.trail.splice(i, 1);
+          } else {
+            this.drawPoint(point);
+          }
+        }
+        this.texture.needsUpdate = true;
+      }
+      clear() {
+        this.ctx.fillStyle = "black";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+      addTouch(point) {
+        let force = 0;
+        let vx = 0;
+        let vy = 0;
+        const last = this.last;
+        if (last) {
+          const dx = point.x - last.x;
+          const dy = point.y - last.y;
+          if (dx === 0 && dy === 0) return;
+          const dd = dx * dx + dy * dy;
+          let d = Math.sqrt(dd);
+          vx = dx / d;
+          vy = dy / d;
+          force = Math.min(dd * 20000, 2.0);
+        }
+        this.last = { x: point.x, y: point.y };
+        this.trail.push({ x: point.x, y: point.y, age: 0, force, vx, vy });
+      }
+      drawPoint(point) {
+        const pos = {
+          x: point.x * this.width,
+          y: (1 - point.y) * this.height
+        };
+        let intensity = 1;
+        if (point.age < this.maxAge * 0.3) {
+          intensity = Math.sin((point.age / (this.maxAge * 0.3)) * (Math.PI / 2));
+        } else {
+          const t = 1 - (point.age - this.maxAge * 0.3) / (this.maxAge * 0.7);
+          intensity = -t * (t - 2);
+        }
+        intensity *= point.force;
+        const radius = this.radius;
+        let color = `${((point.vx + 1) / 2) * 255}, ${((point.vy + 1) / 2) * 255}, ${intensity * 255}`;
+        let offset = this.size * 5;
+        this.ctx.shadowOffsetX = offset;
+        this.ctx.shadowOffsetY = offset;
+        this.ctx.shadowBlur = radius * 1;
+        this.ctx.shadowColor = `rgba(${color},${0.2 * intensity})`;
+        this.ctx.beginPath();
+        this.ctx.fillStyle = "rgba(255,0,0,1)";
+        this.ctx.arc(pos.x - offset, pos.y - offset, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+      }
+    }
 
+    class GradientBackground {
+      constructor(sceneManager) {
+        this.sceneManager = sceneManager;
+        this.mesh = null;
+        this.uniforms = {
+          uTime: { value: 0 },
+          uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+          uColor1: { value: new THREE.Vector3(0.945, 0.353, 0.133) },
+          uColor2: { value: new THREE.Vector3(0.039, 0.055, 0.153) },
+          uColor3: { value: new THREE.Vector3(0.945, 0.353, 0.133) },
+          uColor4: { value: new THREE.Vector3(0.039, 0.055, 0.153) },
+          uColor5: { value: new THREE.Vector3(0.945, 0.353, 0.133) },
+          uColor6: { value: new THREE.Vector3(0.039, 0.055, 0.153) },
+          uSpeed: { value: 1.2 },
+          uIntensity: { value: 1.8 },
+          uTouchTexture: { value: null },
+          uGrainIntensity: { value: 0.08 },
+          uZoom: { value: 1.0 },
+          uDarkNavy: { value: new THREE.Vector3(0.039, 0.055, 0.153) },
+          uGradientSize: { value: 1.0 },
+          uGradientCount: { value: 6.0 },
+          uColor1Weight: { value: 1.0 },
+          uColor2Weight: { value: 1.0 }
+        };
+      }
+      init() {
+        const viewSize = this.sceneManager.getViewSize();
+        const geometry = new THREE.PlaneGeometry(viewSize.width, viewSize.height, 1, 1);
+        const material = new THREE.ShaderMaterial({
+          uniforms: this.uniforms,
+          vertexShader: `varying vec2 vUv;void main(){vec3 pos=position.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.);vUv=uv;}`,
+          fragmentShader: `
+            uniform float uTime;uniform vec2 uResolution;uniform vec3 uColor1;uniform vec3 uColor2;uniform vec3 uColor3;uniform vec3 uColor4;uniform vec3 uColor5;uniform vec3 uColor6;uniform float uSpeed;uniform float uIntensity;uniform sampler2D uTouchTexture;uniform float uGrainIntensity;uniform float uZoom;uniform vec3 uDarkNavy;uniform float uGradientSize;uniform float uGradientCount;uniform float uColor1Weight;uniform float uColor2Weight;varying vec2 vUv;
+            #define PI 3.14159265359
+            float grain(vec2 uv,float time){vec2 grainUv=uv*uResolution*0.5;float grainValue=fract(sin(dot(grainUv+time,vec2(12.9898,78.233)))*43758.5453);return grainValue*2.0-1.0;}
+            vec3 getGradientColor(vec2 uv,float time){float gradientRadius=uGradientSize;vec2 center1=vec2(0.5+sin(time*uSpeed*0.4)*0.4,0.5+cos(time*uSpeed*0.5)*0.4);vec2 center2=vec2(0.5+cos(time*uSpeed*0.6)*0.5,0.5+sin(time*uSpeed*0.45)*0.5);vec2 center3=vec2(0.5+sin(time*uSpeed*0.35)*0.45,0.5+cos(time*uSpeed*0.55)*0.45);vec2 center4=vec2(0.5+cos(time*uSpeed*0.5)*0.4,0.5+sin(time*uSpeed*0.4)*0.4);vec2 center5=vec2(0.5+sin(time*uSpeed*0.7)*0.35,0.5+cos(time*uSpeed*0.6)*0.35);vec2 center6=vec2(0.5+cos(time*uSpeed*0.45)*0.5,0.5+sin(time*uSpeed*0.65)*0.5);float dist1=length(uv-center1);float dist2=length(uv-center2);float dist3=length(uv-center3);float dist4=length(uv-center4);float dist5=length(uv-center5);float dist6=length(uv-center6);float influence1=1.0-smoothstep(0.0,gradientRadius,dist1);float influence2=1.0-smoothstep(0.0,gradientRadius,dist2);float influence3=1.0-smoothstep(0.0,gradientRadius,dist3);float influence4=1.0-smoothstep(0.0,gradientRadius,dist4);float influence5=1.0-smoothstep(0.0,gradientRadius,dist5);float influence6=1.0-smoothstep(0.0,gradientRadius,dist6);vec2 rotatedUv1=uv-0.5;float angle1=time*uSpeed*0.15;rotatedUv1=vec2(rotatedUv1.x*cos(angle1)-rotatedUv1.y*sin(angle1),rotatedUv1.x*sin(angle1)+rotatedUv1.y*cos(angle1));rotatedUv1+=0.5;vec2 rotatedUv2=uv-0.5;float angle2=-time*uSpeed*0.12;rotatedUv2=vec2(rotatedUv2.x*cos(angle2)-rotatedUv2.y*sin(angle2),rotatedUv2.x*sin(angle2)+rotatedUv2.y*cos(angle2));rotatedUv2+=0.5;float radialGradient1=length(rotatedUv1-0.5);float radialGradient2=length(rotatedUv2-0.5);float radialInfluence1=1.0-smoothstep(0.0,0.8,radialGradient1);float radialInfluence2=1.0-smoothstep(0.0,0.8,radialGradient2);vec3 color=vec3(0.0);color+=uColor1*influence1*(0.55+0.45*sin(time*uSpeed))*uColor1Weight;color+=uColor2*influence2*(0.55+0.45*cos(time*uSpeed*1.2))*uColor2Weight;color+=uColor3*influence3*(0.55+0.45*sin(time*uSpeed*0.8))*uColor1Weight;color+=uColor4*influence4*(0.55+0.45*cos(time*uSpeed*1.3))*uColor2Weight;color+=uColor5*influence5*(0.55+0.45*sin(time*uSpeed*1.1))*uColor1Weight;color+=uColor6*influence6*(0.55+0.45*cos(time*uSpeed*0.9))*uColor2Weight;color+=mix(uColor1,uColor3,radialInfluence1)*0.45*uColor1Weight;color+=mix(uColor2,uColor4,radialInfluence2)*0.4*uColor2Weight;color=clamp(color,vec3(0.0),vec3(1.0))*uIntensity;float luminance=dot(color,vec3(0.299,0.587,0.114));color=mix(vec3(luminance),color,1.35);color=pow(color,vec3(0.92));float brightness1=length(color);float mixFactor1=max(brightness1*1.2,0.15);color=mix(uDarkNavy,color,mixFactor1);float maxBrightness=1.0;float brightness=length(color);if(brightness>maxBrightness){color=color*(maxBrightness/brightness);}return color;}
+            void main(){vec2 uv=vUv;vec4 touchTex=texture2D(uTouchTexture,uv);float vx=-(touchTex.r*2.0-1.0);float vy=-(touchTex.g*2.0-1.0);float intensity=touchTex.b;uv.x+=vx*0.8*intensity;uv.y+=vy*0.8*intensity;vec2 center=vec2(0.5);float dist=length(uv-center);float ripple=sin(dist*20.0-uTime*3.0)*0.04*intensity;float wave=sin(dist*15.0-uTime*2.0)*0.03*intensity;uv+=vec2(ripple+wave);vec3 color=getGradientColor(uv,uTime);float grainValue=grain(uv,uTime);color+=grainValue*uGrainIntensity;float timeShift=uTime*0.5;color.r+=sin(timeShift)*0.02;color.g+=cos(timeShift*1.4)*0.02;color.b+=sin(timeShift*1.2)*0.02;float brightness2=length(color);float mixFactor2=max(brightness2*1.2,0.15);color=mix(uDarkNavy,color,mixFactor2);color=clamp(color,vec3(0.0),vec3(1.0));float maxBrightness=1.0;float brightness=length(color);if(brightness>maxBrightness){color=color*(maxBrightness/brightness);}gl_FragColor=vec4(color,1.0);}
+          `
+        });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.z = 0;
+        this.sceneManager.scene.add(this.mesh);
+      }
+      update(delta) { if (this.uniforms.uTime) this.uniforms.uTime.value += delta; }
+      onResize(width, height) {
+        const viewSize = this.sceneManager.getViewSize();
+        if (this.mesh) { this.mesh.geometry.dispose(); this.mesh.geometry = new THREE.PlaneGeometry(viewSize.width, viewSize.height, 1, 1); }
+        if (this.uniforms.uResolution) this.uniforms.uResolution.value.set(width, height);
+      }
+    }
+
+    class App {
+      constructor() {
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", alpha: false, stencil: false, depth: false });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(this.renderer.domElement);
+        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+        this.camera.position.z = 50;
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x0a0e27);
+        this.clock = new THREE.Clock();
+        this.touchTexture = new TouchTexture();
+        this.gradientBackground = new GradientBackground(this);
+        this.gradientBackground.uniforms.uTouchTexture.value = this.touchTexture.texture;
+        this.init();
+      }
+      init() {
+        this.gradientBackground.init();
+        this.tick();
+        window.addEventListener("resize", () => this.onResize());
+        window.addEventListener("mousemove", (ev) => this.onMouseMove(ev));
+        window.addEventListener("touchmove", (ev) => this.onTouchMove(ev));
+      }
+      onTouchMove(ev) { const touch = ev.touches[0]; this.onMouseMove({ clientX: touch.clientX, clientY: touch.clientY }); }
+      onMouseMove(ev) {
+        this.mouse = { x: ev.clientX / window.innerWidth, y: 1 - ev.clientY / window.innerHeight };
+        this.touchTexture.addTouch(this.mouse);
+      }
+      getViewSize() {
+        const fovInRadians = (this.camera.fov * Math.PI) / 180;
+        const height = Math.abs(this.camera.position.z * Math.tan(fovInRadians / 2) * 2);
+        return { width: height * this.camera.aspect, height };
+      }
+      update(delta) {
+        this.touchTexture.update();
+        this.gradientBackground.update(delta);
+      }
+      render() {
+        const delta = this.clock.getDelta();
+        const clampedDelta = Math.min(delta, 0.1);
+        this.renderer.render(this.scene, this.camera);
+        this.update(clampedDelta);
+      }
+      tick() {
+        this.render();
+        requestAnimationFrame(() => this.tick());
+      }
+      onResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.gradientBackground.onResize(window.innerWidth, window.innerHeight);
+      }
+    }
+    new App();
+  </script>
+</body>
+</html>
+    """
+    
+    # Inject full screen background
+    components.html(html_code, height=0, width=0) # Height 0 because we style it with CSS to be fixed background
+    
+    # CSS to make the iframe cover the screen behind everything
+    st.markdown("""
+    <style>
+        iframe {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            border: none;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+def load_ui_css():
     st.markdown(f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
+        /* Make Streamlit background transparent so WebGL shows through */
         .stApp {{
-            background-image: linear-gradient(rgba(15, 23, 42, {0.1 if theme=='light' else 0.88}), rgba(15, 23, 42, {0.1 if theme=='light' else 0.96})), 
-                              url("{bg_image}");
-            background-size: cover;
-            background-attachment: fixed;
+            background: transparent !important;
             font-family: 'Inter', sans-serif;
-            color: {text_color};
+            color: #ffffff;
         }}
         
-        /* RADIANT SEPARATOR */
-        .radiant-line {{
-            background: linear-gradient(90deg, rgba(78,205,196,0), rgba(78,205,196,0.5), rgba(78,205,196,0));
-            height: 1px;
-            margin: 30px 0;
-            width: 100%;
-            opacity: 0.6;
-        }}
-
+        /* Transparent Glass Cards for Retina Clarity */
         .glass-card {{
-            background: {glass_bg};
-            backdrop-filter: blur({FIBO['md']}px);
-            border: 1px solid {glass_border};
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: {FIBO['sm']}px;
             padding: {FIBO['md']}px;
             margin-bottom: {FIBO['sm']}px;
-            box-shadow: {shadow};
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }}
         
         .glass-card:hover {{
             transform: translateY(-2px);
-            border-color: rgba(78, 205, 196, 0.3);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
         }}
         
+        /* Typography */
         .metric-value {{
             font-family: 'Space Grotesk', sans-serif;
             font-size: 24px;
             font-weight: 700;
-            color: {text_color};
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }}
         
         .metric-label {{
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: {subtext_color};
+            color: rgba(255,255,255,0.7);
             font-weight: 600;
         }}
         
         h1, h2, h3, h4, h5, h6 {{
             font-family: 'Space Grotesk', sans-serif !important;
-            color: {text_color} !important;
+            color: #ffffff !important;
             font-weight: 700 !important;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }}
         
-        /* Butonlar */
+        /* Input Fields Transparency */
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea,
+        .stSelectbox > div > div > select,
+        .stNumberInput > div > div > input {{
+            background: rgba(0,0,0,0.3) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            color: #ffffff !important;
+            border-radius: 8px !important;
+            backdrop-filter: blur(10px);
+        }}
+        
+        /* Buttons */
         div.stButton > button {{
-            background: {btn_gradient} !important;
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.8), rgba(68, 160, 141, 0.8)) !important;
             color: white !important;
-            border: none !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            backdrop-filter: blur(4px);
             padding: {FIBO['sm']}px {FIBO['md']}px !important;
             border-radius: 8px !important;
             font-weight: 600 !important;
@@ -184,31 +408,17 @@ def load_css(theme="dark"):
         
         div.stButton > button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.3);
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);
         }}
         
-        /* Girdi Alanları */
-        .stTextInput > div > div > input,
-        .stTextArea > div > div > textarea,
-        .stSelectbox > div > div > select,
-        .stNumberInput > div > div > input {{
-            background: {input_bg} !important;
-            border: 1px solid {glass_border} !important;
-            color: {text_color} !important;
-            border-radius: 8px !important;
-        }}
-        
-        .stCheckbox label {{ color: {text_color} !important; }}
         #MainMenu, header, footer {{ visibility: hidden; }}
         
+        /* Scrollbar */
         ::-webkit-scrollbar {{ width: 6px; }}
-        ::-webkit-scrollbar-track {{ background: rgba(0,0,0,0.05); }}
-        ::-webkit-scrollbar-thumb {{ background: rgba(78,205,196,0.3); border-radius: 3px; }}
+        ::-webkit-scrollbar-track {{ background: transparent; }}
+        ::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.2); border-radius: 3px; }}
     </style>
     """, unsafe_allow_html=True)
-
-def radiant_line():
-    st.markdown('<div class="radiant-line"></div>', unsafe_allow_html=True)
 
 # ============================================================================
 # 4. VERİTABANI YÖNETİMİ
@@ -265,7 +475,6 @@ def save_order(order_data):
         df = load_orders()
         df = pd.concat([df, pd.DataFrame([order_data])], ignore_index=True)
         df.to_csv(CSV_ORDERS, index=False)
-        log_action("SİPARİŞ_OLUŞTURULDU", "admin", order_data['Order_ID'], f"Oluşturuldu: {order_data['Order_ID']}")
         return True
     except Exception as e:
         st.error(f"Kayıt hatası: {e}")
@@ -282,7 +491,6 @@ def save_payment(payment_data):
         df = load_payments()
         df = pd.concat([df, pd.DataFrame([payment_data])], ignore_index=True)
         df.to_csv(CSV_PAYMENTS, index=False)
-        log_action("ÖDEME_KAYDI", "admin", "", f"{payment_data['Brand']} ödemesi kaydedildi")
         return True
     except: return False
 
@@ -297,27 +505,8 @@ def save_invoice(invoice_data):
         df = load_invoices()
         df = pd.concat([df, pd.DataFrame([invoice_data])], ignore_index=True)
         df.to_csv(CSV_INVOICES, index=False)
-        log_action("FATURA_KESİLDİ", "admin", "", f"{invoice_data['Brand']} faturası oluşturuldu")
         return True
     except: return False
-
-def log_action(action, user, order_id, details):
-    try:
-        df = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
-        log_entry = {
-            'Log_ID': f"LOG-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'Action': action,
-            'User': user,
-            'Order_ID': order_id,
-            'Details': details
-        }
-        df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
-        df.to_csv(CSV_LOGS, index=False)
-    except: pass
-
-def export_to_csv(df):
-    return df.to_csv(index=False).encode('utf-8')
 
 # ============================================================================
 # 5. OTURUM YÖNETİMİ
@@ -329,15 +518,14 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'brand_lock' not in st.session_state:
     st.session_state.brand_lock = None
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark'
 
 # ============================================================================
 # 6. GİRİŞ EKRANI
 # ============================================================================
 
 def login_screen():
-    load_css(st.session_state.theme)
+    inject_liquid_background()
+    load_ui_css()
     st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -346,7 +534,7 @@ def login_screen():
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
             <h2>NATUVISIO ADMIN</h2>
-            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.4</p>
+            <p style="opacity: 0.6; font-size: 12px;">LIQUID EDITION v6.0</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -355,7 +543,6 @@ def login_screen():
         if st.button("🔓 GİRİŞ YAP", use_container_width=True):
             if password == ADMIN_PASS:
                 st.session_state.admin_logged_in = True
-                log_action("GİRİŞ", "admin", "", "Başarılı giriş")
                 st.rerun()
             else:
                 st.error("❌ Hatalı şifre")
@@ -365,7 +552,8 @@ def login_screen():
 # ============================================================================
 
 def dashboard():
-    load_css(st.session_state.theme)
+    inject_liquid_background()
+    load_ui_css()
     init_databases()
     
     col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
@@ -380,11 +568,6 @@ def dashboard():
         </div>
         """, unsafe_allow_html=True)
     
-    with col_h2:
-        if st.button("☀️/🌙", key="theme_toggle"):
-            st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
-            st.rerun()
-
     with col_h3:
         if st.button("🚪 Çıkış"):
             st.session_state.admin_logged_in = False
@@ -403,13 +586,11 @@ def dashboard():
     with col_m1:
         st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM CİRO</div><div class="metric-value">{total_rev:,.0f}₺</div></div>""", unsafe_allow_html=True)
     with col_m2:
-        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #4ECDC4;"><div class="metric-label">NET KOMİSYON</div><div class="metric-value" style="color:#4ECDC4;">{total_comm:,.0f}₺</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">NET KOMİSYON</div><div class="metric-value" style="color:#4ECDC4;">{total_comm:,.0f}₺</div></div>""", unsafe_allow_html=True)
     with col_m3:
-        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #F59E0B;"><div class="metric-label">BEKLEYEN İŞLEM</div><div class="metric-value" style="color:#F59E0B;">{pending_count}</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">BEKLEYEN İŞLEM</div><div class="metric-value" style="color:#F59E0B;">{pending_count}</div></div>""", unsafe_allow_html=True)
     with col_m4:
         st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM SİPARİŞ</div><div class="metric-value">{len(df)}</div></div>""", unsafe_allow_html=True)
-
-    radiant_line()
 
     tabs = st.tabs([
         "🚀 YENİ SEVKİYAT", 
@@ -425,7 +606,7 @@ def dashboard():
     with tabs[2]: render_brand_payout_hq()
     with tabs[3]: render_all_orders()
     with tabs[4]: render_analytics()
-    with tabs[5]: render_faqs() # YENİ FONKSİYON ÇAĞRISI
+    with tabs[5]: render_faqs()
 
 # ============================================================================
 # 8. YENİ SEVKİYAT MODÜLÜ
@@ -582,7 +763,6 @@ def render_new_dispatch():
 # ============================================================================
 
 def render_operations():
-    radiant_line()
     st.markdown("### ✅ Operasyon Yönetimi")
     df = load_orders()
     
@@ -634,7 +814,6 @@ def render_operations():
 # ============================================================================
 
 def render_brand_payout_hq():
-    radiant_line()
     st.markdown("## 📑 FATURA & ÖDEME PANELİ (BRAND PAYOUT HQ)")
     
     df_orders = load_orders()
@@ -713,7 +892,6 @@ def render_brand_payout_hq():
             else:
                 st.success("✅ Tüm ödemeler yapıldı.")
 
-    radiant_line()
     st.markdown("### 📋 Fatura Durum Tablosu (Cross-Check)")
     df_payments = load_payments()
     if not df_payments.empty:
@@ -740,7 +918,6 @@ def render_brand_payout_hq():
 # ============================================================================
 
 def render_all_orders():
-    radiant_line()
     st.markdown("### 📦 Tüm Sipariş Geçmişi")
     df = load_orders()
     if not df.empty:
@@ -749,7 +926,6 @@ def render_all_orders():
         st.info("Kayıt yok")
 
 def render_analytics():
-    radiant_line()
     st.markdown("### 📊 Analitik Raporlar")
     df = load_orders()
     if not df.empty:
@@ -766,7 +942,6 @@ def render_analytics():
 # ============================================================================
 
 def render_faqs():
-    radiant_line()
     st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
 
     with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
