@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V6.0 (RETINA UI + LOGS HQ)
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V6.1 (LOGO FIX + OS FOOTER)
 # ============================================================================
 
 st.set_page_config(
@@ -31,12 +31,8 @@ PHI = 1.618
 
 FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
 
-# BRAND ASSETS
-LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764805291/natuvisio_logo_gtqtfs.ai" 
-# Note: .ai files do not render in browsers. Assuming Cloudinary converts this or using placeholder for safety.
-# For production, ensure this URL points to a PNG or SVG. 
-# Using a text fallback in design just in case the AI file doesn't render directly.
-
+# FIXED LOGO URL (PNG Format for Web Compatibility)
+LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v1764805291/natuvisio_logo_gtqtfs.png"
 BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
 
 BRANDS = {
@@ -81,7 +77,7 @@ BRANDS = {
 # 2. İKON SETİ (ICONS)
 # ============================================================================
 
-def get_icon(name, color="#5b7354", size=24): # Updated default to Sage
+def get_icon(name, color="#5b7354", size=24):
     icons = {
         "mountain": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M3 20L9 8L12 14L15 6L21 20H3Z"/></svg>',
         "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>',
@@ -95,22 +91,20 @@ def get_icon(name, color="#5b7354", size=24): # Updated default to Sage
     return icons.get(name, "")
 
 # ============================================================================
-# 3. CSS & RETINA THEME ENGINE (v6.0 UPGRADE)
+# 3. CSS & RETINA THEME ENGINE
 # ============================================================================
 
-def load_css(theme="light"): # Changed default to light per req
+def load_css(theme="light"):
     if theme == "light":
-        # Ultra Premium Light Theme
-        overlay_color = "rgba(255, 255, 255, 0.15)" # 15% opacity white film
+        overlay_color = "rgba(255, 255, 255, 0.15)"
         glass_bg = "rgba(255, 255, 255, 0.65)"
-        glass_border = "rgba(91, 115, 84, 0.2)" # Subtle Sage
-        text_color = "#0f172a" # Dark Navy
+        glass_border = "rgba(91, 115, 84, 0.2)"
+        text_color = "#0f172a"
         subtext_color = "#475569"
         input_bg = "rgba(255, 255, 255, 0.75)"
         shadow = "0 4px 24px rgba(0, 0, 0, 0.06)"
-        btn_gradient = "linear-gradient(135deg, #5b7354, #4a6b45)" # Sage Gradient
+        btn_gradient = "linear-gradient(135deg, #5b7354, #4a6b45)"
     else:
-        # Secondary Dark Theme
         overlay_color = "rgba(15, 23, 42, 0.85)"
         glass_bg = "rgba(255, 255, 255, 0.04)"
         glass_border = "rgba(255, 255, 255, 0.08)"
@@ -126,7 +120,6 @@ def load_css(theme="light"): # Changed default to light per req
         
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
-        /* RETINA BACKGROUND */
         .stApp {{
             background-image: linear-gradient({overlay_color}, {overlay_color}), 
                               url("{BG_IMAGE}");
@@ -164,7 +157,6 @@ def load_css(theme="light"): # Changed default to light per req
             100% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }}
         }}
 
-        /* GLASS CARD */
         .glass-card {{
             background: {glass_bg};
             backdrop-filter: blur(20px);
@@ -180,13 +172,6 @@ def load_css(theme="light"): # Changed default to light per req
         .glass-card:hover {{
             transform: translateY(-3px);
             box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-        }}
-        
-        /* LOGO & TYPOGRAPHY */
-        .brand-logo {{
-            height: 45px;
-            margin-right: 15px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
         }}
         
         .metric-value {{
@@ -213,7 +198,6 @@ def load_css(theme="light"): # Changed default to light per req
             letter-spacing: -0.03em !important;
         }}
         
-        /* BUTTONS */
         div.stButton > button {{
             background: {btn_gradient} !important;
             color: white !important;
@@ -233,7 +217,6 @@ def load_css(theme="light"): # Changed default to light per req
             box-shadow: 0 8px 16px rgba(91, 115, 84, 0.4) !important;
         }}
         
-        /* INPUTS */
         .stTextInput > div > div > input,
         .stTextArea > div > div > textarea,
         .stSelectbox > div > div > select,
@@ -259,6 +242,43 @@ def load_css(theme="light"): # Changed default to light per req
         ::-webkit-scrollbar {{ width: 6px; }}
         ::-webkit-scrollbar-track {{ background: transparent; }}
         ::-webkit-scrollbar-thumb {{ background: rgba(91,115,84,0.4); border-radius: 3px; }}
+        
+        /* OS FOOTER */
+        .os-footer {{
+            margin-top: 50px;
+            padding: 30px;
+            border-top: 1px solid rgba(91, 115, 84, 0.15);
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            color: {subtext_color};
+            background: {glass_bg};
+            backdrop-filter: blur(10px);
+        }}
+        
+        .os-footer-logo {{
+            height: 24px;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }}
+        
+        .os-status-dot {{
+            height: 8px;
+            width: 8px;
+            background-color: #10B981;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }}
+        
+        .os-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: left;
+        }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -389,7 +409,7 @@ if 'cart' not in st.session_state:
 if 'brand_lock' not in st.session_state:
     st.session_state.brand_lock = None
 if 'theme' not in st.session_state:
-    st.session_state.theme = 'light' # DEFAULT TO LIGHT
+    st.session_state.theme = 'light' 
 
 # ============================================================================
 # 6. GİRİŞ EKRANI
@@ -401,7 +421,6 @@ def login_screen():
     
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        # LOGO INTEGRATION
         st.markdown(f"""
         <div style="text-align:center; margin-bottom:20px;">
             <img src="{LOGO_URL}" style="width:120px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
@@ -412,7 +431,7 @@ def login_screen():
         st.markdown(f"""
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <h2>YÖNETİM GİRİŞİ</h2>
-            <p style="opacity: 0.6; font-size: 13px; margin-bottom:20px;">GÜVENLİ OPERASYON SİSTEMİ v6.0</p>
+            <p style="opacity: 0.6; font-size: 13px; margin-bottom:20px;">GÜVENLİ OPERASYON SİSTEMİ v6.1</p>
         """, unsafe_allow_html=True)
         
         password = st.text_input("Erişim Şifresi", type="password", key="login", label_visibility="collapsed", placeholder="Şifrenizi Giriniz")
@@ -461,16 +480,13 @@ def dashboard():
             
     st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    # --- RADIANT REMINDERS (ACTION ENGINE) ---
+    # --- RADIANT REMINDERS ---
     df_orders = load_orders()
-    df_payments = load_payments()
-    
     pending_notify = len(df_orders[df_orders['WhatsApp_Sent'] == 'NO'])
     pending_track = len(df_orders[(df_orders['Status'] == 'Notified') & (df_orders['Tracking_Num'].isna())])
     
     if pending_notify > 0:
         st.markdown(f"""<div class="radiant-reminder">⚠️ {pending_notify} SİPARİŞ BİLDİRİM BEKLİYOR! <span style="font-size:10px; opacity:0.7;">OPERASYON'A GİT</span></div>""", unsafe_allow_html=True)
-    
     if pending_track > 0:
         st.markdown(f"""<div class="radiant-reminder">📦 {pending_track} KARGO TAKİP NO EKSİK! <span style="font-size:10px; opacity:0.7;">OPERASYON'A GİT</span></div>""", unsafe_allow_html=True)
 
@@ -498,7 +514,7 @@ def dashboard():
         "📦 TÜM SİPARİŞLER",
         "📊 ANALİTİK",
         "❔ REHBER",
-        "📜 LOG KAYITLARI" # NEW TAB 7
+        "📜 LOG KAYITLARI"
     ])
     
     with tabs[0]: render_new_dispatch()
@@ -507,14 +523,37 @@ def dashboard():
     with tabs[3]: render_all_orders()
     with tabs[4]: render_analytics()
     with tabs[5]: render_faqs()
-    with tabs[6]: render_logs_advanced() # NEW MODULE
+    with tabs[6]: render_logs_advanced()
 
-    # --- FOOTER ---
-    st.markdown("---")
+    # --- OS FOOTER (NEW v6.1) ---
+    render_os_footer()
+
+def render_os_footer():
     st.markdown(f"""
-    <div style="text-align:center; opacity:0.5; font-size:11px; margin-top:20px;">
-        <img src="{LOGO_URL}" style="height:20px; vertical-align:middle; filter: grayscale(100%); margin-right:5px;" onerror="this.style.display='none'">
-        NATUVISIO OPERATING SYSTEM &copy; 2025
+    <div class="os-footer">
+        <img src="{LOGO_URL}" class="os-footer-logo" onerror="this.style.display='none'">
+        <div class="os-grid">
+            <div>
+                <strong>NATUVISIO ADMIN OS v6.1</strong><br>
+                <span class="os-status-dot"></span> System Operational<br>
+                Last Sync: {datetime.now().strftime('%H:%M:%S')}
+            </div>
+            <div>
+                <strong>DATA INTEGRITY</strong><br>
+                Orders: orders_complete.csv<br>
+                Financials: brand_payments.csv
+            </div>
+            <div>
+                <strong>OPERATIONS</strong><br>
+                Support: operations@natuvisio.com<br>
+                Emergency: +90 535 926 49 91
+            </div>
+            <div>
+                <strong>SECURITY</strong><br>
+                Log Active. Unauthorized access prohibited.<br>
+                Internal Use Only.
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -577,7 +616,6 @@ def render_new_dispatch():
         
         if st.session_state.cart:
             for item in st.session_state.cart:
-                # SUPERCHARGED VISUALIZATION
                 item_html = f"""
 <div style="background: rgba(128,128,128,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(128,128,128,0.1);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -825,8 +863,62 @@ def render_brand_payout_hq():
         st.info("Henüz ödeme kaydı yok.")
 
 # ============================================================================
-# 11. DİĞER FONKSİYONLAR
+# 11. LOGS & ANALYTICS
 # ============================================================================
+
+def render_logs_advanced():
+    radiant_line()
+    st.markdown(f"## 📜 LOG KAYITLARI <span style='font-size:12px; opacity:0.6; vertical-align:middle;'>GELİŞMİŞ MODÜL</span>", unsafe_allow_html=True)
+    
+    df_logs = load_logs()
+    
+    if df_logs.empty:
+        st.info("Henüz sistem kaydı bulunmuyor.")
+        return
+
+    # SEARCH
+    search_query = st.text_input("🔍 Log Ara (ID, İşlem, Kullanıcı, Detay...)", key="log_search")
+    
+    # FILTERS
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        unique_actions = df_logs['Action'].unique().tolist()
+        filter_action = st.multiselect("İşlem Tipi Filtrele", unique_actions)
+    with col_f2:
+        unique_users = df_logs['User'].unique().tolist()
+        filter_user = st.multiselect("Kullanıcı Filtrele", unique_users)
+
+    filtered_df = df_logs.copy()
+    if search_query:
+        filtered_df = filtered_df[
+            filtered_df.apply(lambda row: search_query.lower() in row.astype(str).str.lower().values.tostring().lower(), axis=1)
+        ]
+    if filter_action:
+        filtered_df = filtered_df[filtered_df['Action'].isin(filter_action)]
+    if filter_user:
+        filtered_df = filtered_df[filtered_df['User'].isin(filter_user)]
+
+    st.markdown(f"**{len(filtered_df)}** kayıt bulundu.")
+    st.dataframe(
+        filtered_df.sort_values('Time', ascending=False),
+        use_container_width=True,
+        column_config={
+            "Log_ID": "Log ID",
+            "Time": "Tarih/Saat",
+            "Action": "İşlem Türü",
+            "User": "Kullanıcı",
+            "Details": "Detaylar"
+        },
+        height=500
+    )
+    
+    csv = export_to_csv(filtered_df)
+    st.download_button(
+        label="📥 Logları İndir (CSV)",
+        data=csv,
+        file_name=f"system_logs_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime='text/csv',
+    )
 
 def render_all_orders():
     radiant_line()
@@ -853,76 +945,13 @@ def render_analytics():
 def render_faqs():
     radiant_line()
     st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
-    # FAQ CONTENT KEPT FROM PREVIOUS VERSION
     with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
         st.markdown("""Bu panel, NATUVISIO'nun tüm marka partnerleri için tek merkezden sevkiyat, finans ve mutabakat yönetimini sağlar.""")
-    # ... (Rest of FAQs preserved)
+    with st.expander("2. Sipariş akışı: İlk adımdan marka ödemesine kadar", expanded=False):
+        st.markdown("""1. YENİ SEVKİYAT > Sipariş Gir\n2. OPERASYON > WhatsApp Gönder\n3. Kargo Takip > Gir & Tamamla\n4. FATURA & ÖDEME > Marka Hakedişini Öde""")
 
 # ============================================================================
-# 13. LOGS PANEL (NEW v6.0)
-# ============================================================================
-
-def render_logs_advanced():
-    radiant_line()
-    st.markdown(f"## 📜 LOG KAYITLARI <span style='font-size:12px; opacity:0.6; vertical-align:middle;'>GELİŞMİŞ MODÜL</span>", unsafe_allow_html=True)
-    
-    df_logs = load_logs()
-    
-    if df_logs.empty:
-        st.info("Henüz sistem kaydı bulunmuyor.")
-        return
-
-    # A) SEARCH BAR
-    search_query = st.text_input("🔍 Log Ara (ID, İşlem, Kullanıcı, Detay...)", key="log_search")
-    
-    # B) FILTERS
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        unique_actions = df_logs['Action'].unique().tolist()
-        filter_action = st.multiselect("İşlem Tipi Filtrele", unique_actions)
-    with col_f2:
-        unique_users = df_logs['User'].unique().tolist()
-        filter_user = st.multiselect("Kullanıcı Filtrele", unique_users)
-
-    # Filter Logic
-    filtered_df = df_logs.copy()
-    if search_query:
-        filtered_df = filtered_df[
-            filtered_df.apply(lambda row: search_query.lower() in row.astype(str).str.lower().values.tostring().lower(), axis=1)
-        ]
-    if filter_action:
-        filtered_df = filtered_df[filtered_df['Action'].isin(filter_action)]
-    if filter_user:
-        filtered_df = filtered_df[filtered_df['User'].isin(filter_user)]
-
-    # C) SORTABLE TABLE & D) HIGHLIGHTING
-    st.markdown(f"**{len(filtered_df)}** kayıt bulundu.")
-    
-    # Using dataframe for native sorting
-    st.dataframe(
-        filtered_df.sort_values('Time', ascending=False),
-        use_container_width=True,
-        column_config={
-            "Log_ID": "Log ID",
-            "Time": "Tarih/Saat",
-            "Action": "İşlem Türü",
-            "User": "Kullanıcı",
-            "Details": "Detaylar"
-        },
-        height=500
-    )
-    
-    # E) EXPORT
-    csv = export_to_csv(filtered_df)
-    st.download_button(
-        label="📥 Logları İndir (CSV)",
-        data=csv,
-        file_name=f"system_logs_{datetime.now().strftime('%Y%m%d')}.csv",
-        mime='text/csv',
-    )
-
-# ============================================================================
-# 14. ANA ÇALIŞTIRMA (MAIN)
+# 12. ANA ÇALIŞTIRMA (MAIN)
 # ============================================================================
 
 if __name__ == "__main__":
