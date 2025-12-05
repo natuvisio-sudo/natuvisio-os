@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.3 (RENDER FIX EDITION)
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.4 (SSS & AKIŞ REHBERİ EKLENDİ)
 # ============================================================================
 
 st.set_page_config(
@@ -230,7 +230,6 @@ def init_databases():
             "Fatura_Sent", "Fatura_Date", "Fatura_Explanation"
         ]).to_csv(CSV_PAYMENTS, index=False)
     else:
-        # Auto-fix legacy columns
         df = pd.read_csv(CSV_PAYMENTS)
         if "Fatura_Sent" not in df.columns:
             df["Fatura_Sent"] = "No"
@@ -347,7 +346,7 @@ def login_screen():
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
             <h2>NATUVISIO ADMIN</h2>
-            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.3</p>
+            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.4</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -417,7 +416,8 @@ def dashboard():
         "✅ OPERASYON", 
         "🏦 FATURA & ÖDEME PANELİ", 
         "📦 TÜM SİPARİŞLER",
-        "📊 ANALİTİK"
+        "📊 ANALİTİK",
+        "❔ SSS & AKIŞ REHBERİ"
     ])
     
     with tabs[0]: render_new_dispatch()
@@ -425,9 +425,10 @@ def dashboard():
     with tabs[2]: render_brand_payout_hq()
     with tabs[3]: render_all_orders()
     with tabs[4]: render_analytics()
+    with tabs[5]: render_faqs() # YENİ FONKSİYON ÇAĞRISI
 
 # ============================================================================
-# 8. YENİ SEVKİYAT MODÜLÜ (SUPERCHARGED CART v5.3 FIXED)
+# 8. YENİ SEVKİYAT MODÜLÜ
 # ============================================================================
 
 def render_new_dispatch():
@@ -761,7 +762,96 @@ def render_analytics():
             st.bar_chart(df['Status'].value_counts())
 
 # ============================================================================
-# 12. ANA ÇALIŞTIRMA (MAIN)
+# 12. SSS & AKIŞ REHBERİ (YENİ - v5.4)
+# ============================================================================
+
+def render_faqs():
+    radiant_line()
+    st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
+
+    with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
+        st.markdown("""
+        Bu panel, NATUVISIO'nun tüm marka partnerleri için (Haki Heal, Auroraco, Longevicals vb.) **tek merkezden sevkiyat, finans ve mutabakat** yönetimini sağlar.
+        
+        **Temel Özellikler:**
+        * **Sipariş Girişi:** Müşteri ve ürün bilgilerini alıp otomatik komisyon hesabı yapar.
+        * **İletişim:** Tek tıkla markaya özel WhatsApp sipariş mesajı oluşturur.
+        * **Takip:** Kargo numaralarını işler ve sipariş durumunu (Pending → Completed) günceller.
+        * **Finansal Zeka:** Tamamlanan siparişleri baz alarak hangi markaya ne kadar ödeme yapılması gerektiğini (Borç) ve markaya ne kadar fatura kesileceğini (Alacak) otomatik hesaplar.
+        """)
+
+    with st.expander("2. Sipariş akışı: İlk adımdan marka ödemesine kadar", expanded=False):
+        st.markdown("""
+        1.  **🚀 YENİ SEVKİYAT** sekmesine girin.
+        2.  Müşteri bilgilerini (Ad Soyad, Telefon, Adres) girin.
+        3.  Markayı ve ürünü seçip adeti girin → "➕ Sepete Ekle" deyin.
+        4.  Sepet özetini kontrol edip **"⚡ SİPARİŞİ OLUŞTUR"** butonuna basın. (Sipariş Durumu: **Pending**)
+        5.  **✅ OPERASYON** sekmesine geçin. İlgili siparişi bulun ve **"📲 WhatsApp Mesajı Gönder"** linkine tıklayarak markaya iletin.
+        6.  Mesajı attıktan sonra **"✅ Bildirildi"** butonuna basın. (Durum: **Notified**, WhatsApp: **YES**)
+        7.  Markadan kargo takip numarası geldiğinde, yine Operasyon sekmesinde "Takip No Giriniz" alanına yazıp **"Kargola"** deyin. (Durum: **Dispatched**)
+        8.  Ürün müşteriye ulaştığında **"Tamamla"** butonuna basın. (Durum: **Completed**)
+        9.  **🏦 FATURA & ÖDEME PANELİ** sekmesine gidin. Tamamlanan siparişlerin toplam tutarını görün.
+        10. **"ÖDEMEYİ YAPTIM"** butonuna basarak ödemeyi sisteme işleyin.
+        """)
+
+    with st.expander("3. Komisyon ve marka ödemesi nasıl hesaplanıyor?", expanded=False):
+        st.markdown("""
+        Her markanın komisyon oranı sistemde (BRANDS sözlüğü içinde) sabittir:
+        * **Haki Heal:** %15
+        * **Auroraco:** %20
+        * **Longevicals:** %12
+        
+        **Hesaplama Mantığı:**
+        * `Birim Fiyat` (Unit Price) x `Adet` (Qty) = `Satır Toplamı` (Line Total)
+        * `Satır Toplamı` x `Komisyon Oranı` = `Komisyon Tutarı` (Commission Amt)
+        * `Satır Toplamı` - `Komisyon Tutarı` = `Marka Ödemesi` (Brand Payout)
+        
+        Bu değerler sipariş oluşturulduğu an `orders_complete.csv` dosyasına sabitlenerek kaydedilir. İleride komisyon oranları değişse bile eski siparişlerin finansal verisi bozulmaz.
+        """)
+
+    with st.expander("4. FATURA & ÖDEME PANELİ nasıl kullanılır?", expanded=False):
+        st.markdown("""
+        Bu panel her marka için iki kritik veriyi gösterir:
+        
+        **A) KESİLMESİ GEREKEN FATURA TUTARI (Sol Kutu - Mavi):**
+        * Sadece durumu **"Completed"** (Tamamlandı) olan siparişlerin toplam tutarını baz alır.
+        * Daha önce ödeme yapılmışsa bu tutardan düşülür.
+        
+        **B) HENÜZ TAMAMLANMAMIŞ SİPARİŞLER (Sağ Kutu - Turuncu):**
+        * Kargoda veya hazırlık aşamasındaki siparişlerin tutarıdır. Bunlar henüz hakedişe dönüşmemiştir.
+        
+        **İşlem Adımları:**
+        1.  Panel, o günkü tarih ile otomatik bir **"Banka Transfer Açıklaması"** üretir. Bunu banka uygulamanıza kopyalayın.
+        2.  Ödemeyi bankadan yaptıktan sonra paneldeki **"💸 ÖDEMEYİ YAPTIM"** butonuna basın.
+        3.  Bu işlem `brand_payments.csv` dosyasına "Confirmed" statüsünde yeni bir satır ekler ve bakiyeyi sıfırlar.
+        4.  Daha sonra aynı sayfadaki **"Fatura Durum Tablosu"** bölümünden, ilgili ödeme için faturanın kesilip kesilmediğini işaretleyebilirsiniz.
+        """)
+
+    with st.expander("5. Sipariş durumları (Pending → Notified → Dispatched → Completed)", expanded=False):
+        st.markdown("""
+        * **🔴 Pending (Bekliyor):** Sipariş sisteme girildi ancak henüz markaya WhatsApp'tan iletilmedi.
+        * **🔵 Notified (Bildirildi):** Markaya sipariş detayı atıldı. Markanın ürünü hazırlaması bekleniyor. (WhatsApp_Sent = YES)
+        * **🟠 Dispatched (Kargolandı):** Marka kargo takip numarasını iletti ve sisteme girildi. Ürün yolda.
+        * **🟢 Completed (Tamamlandı):** Ürün müşteriye ulaştı. Bu aşamaya gelen siparişin parası markaya ödenmeye hak kazanır (Hakedişe eklenir).
+        """)
+
+    with st.expander("6. Raporlama & kontrol: Hangi tablo neyi gösteriyor?", expanded=False):
+        st.markdown("""
+        * **📦 TÜM SİPARİŞLER:** `orders_complete.csv` dosyasındaki ham veriyi gösterir. Geçmişe dönük tüm kayıtlar buradadır.
+        * **📊 ANALİTİK:** Marka bazlı ciro dağılımını ve sipariş durumlarını grafikleştirir.
+        * **📋 Fatura Durum Tablosu:** (Fatura & Ödeme Paneli'nin en altında) Yapılan ödemelerin listesidir. Faturası kesilmiş mi, tarihi nedir buradan takip edilir.
+        """)
+
+    with st.expander("7. Önerilen günlük çalışma rutini", expanded=False):
+        st.markdown("""
+        1.  **Sabah:** `YENİ SEVKİYAT` ekranından gece gelen siparişleri girin.
+        2.  **Öğle:** `OPERASYON` sekmesine geçin. Yeni siparişleri "Bildirildi" yapın. Dünden gelen takip numaralarını girip "Kargola" deyin.
+        3.  **Akşam:** `FATURA & ÖDEME PANELİ`ne bakın. Tamamlanan siparişler için markalara ödeme çıkıp çıkmayacağını kontrol edin.
+        4.  **Haftalık:** `ANALİTİK` sekmesinden hangi markanın daha çok sattığını inceleyin.
+        """)
+
+# ============================================================================
+# 13. ANA ÇALIŞTIRMA (MAIN)
 # ============================================================================
 
 if __name__ == "__main__":
