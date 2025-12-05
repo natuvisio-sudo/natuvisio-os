@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V6.1 (LOGO FIX + OS FOOTER)
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V7.0 (PARTNER PORTAL ENTEGRASYONU)
 # ============================================================================
 
 st.set_page_config(
-    page_title="NATUVISIO Admin OS",
+    page_title="NATUVISIO OS",
     page_icon="🏔️",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -27,11 +27,11 @@ CSV_ORDERS = "orders_complete.csv"
 CSV_PAYMENTS = "brand_payments.csv" 
 CSV_INVOICES = "brand_invoices.csv" 
 CSV_LOGS = "system_logs.csv"
+CSV_PARTNERS = "partners.csv" # YENİ DATABASE
 PHI = 1.618
 
 FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
 
-# FIXED LOGO URL (PNG Format for Web Compatibility)
 LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v1764805291/natuvisio_logo_gtqtfs.png"
 BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
 
@@ -91,7 +91,7 @@ def get_icon(name, color="#5b7354", size=24):
     return icons.get(name, "")
 
 # ============================================================================
-# 3. CSS & RETINA THEME ENGINE
+# 3. CSS & THEME ENGINE
 # ============================================================================
 
 def load_css(theme="light"):
@@ -128,8 +128,6 @@ def load_css(theme="light"):
             background-position: center;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             color: {text_color};
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
         }}
         
         /* RADIANT REMINDER BUTTON */
@@ -147,7 +145,6 @@ def load_css(theme="light"):
             justify-content: space-between;
             animation: pulse-red 1.8s infinite ease-in-out;
             cursor: pointer;
-            text-decoration: none;
             backdrop-filter: blur(8px);
         }}
         
@@ -160,7 +157,6 @@ def load_css(theme="light"):
         .glass-card {{
             background: {glass_bg};
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border: 1px solid {glass_border};
             border-radius: {FIBO['sm']}px;
             padding: {FIBO['md']}px;
@@ -228,7 +224,6 @@ def load_css(theme="light"):
             font-size: 14px !important;
         }}
         
-        /* RADIANT SEPARATOR */
         .radiant-line {{
             background: linear-gradient(90deg, rgba(91,115,84,0), rgba(91,115,84,0.3), rgba(91,115,84,0));
             height: 1px;
@@ -239,11 +234,6 @@ def load_css(theme="light"):
         .stCheckbox label {{ color: {text_color} !important; }}
         #MainMenu, header, footer {{ visibility: hidden; }}
         
-        ::-webkit-scrollbar {{ width: 6px; }}
-        ::-webkit-scrollbar-track {{ background: transparent; }}
-        ::-webkit-scrollbar-thumb {{ background: rgba(91,115,84,0.4); border-radius: 3px; }}
-        
-        /* OS FOOTER */
         .os-footer {{
             margin-top: 50px;
             padding: 30px;
@@ -255,22 +245,6 @@ def load_css(theme="light"):
             background: {glass_bg};
             backdrop-filter: blur(10px);
         }}
-        
-        .os-footer-logo {{
-            height: 24px;
-            margin-bottom: 15px;
-            opacity: 0.8;
-        }}
-        
-        .os-status-dot {{
-            height: 8px;
-            width: 8px;
-            background-color: #10B981;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }}
-        
         .os-grid {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -323,6 +297,18 @@ def init_databases():
             "Log_ID", "Time", "Action", "User", "Order_ID", "Details"
         ]).to_csv(CSV_LOGS, index=False)
 
+    # PARTNER DATABASE (NEW v7.0)
+    if not os.path.exists(CSV_PARTNERS):
+        # Create default partners
+        data = {
+            "partner_email": ["haki@natuvisio.com", "aurora@natuvisio.com", "long@natuvisio.com"],
+            "password": ["haki2025", "aurora2025", "long2025"], # Plain text for demo simplicity
+            "brand_name": ["HAKI HEAL", "AURORACO", "LONGEVICALS"],
+            "created_at": [datetime.now(), datetime.now(), datetime.now()],
+            "status": ["Active", "Active", "Active"]
+        }
+        pd.DataFrame(data).to_csv(CSV_PARTNERS, index=False)
+
 def load_orders():
     try: return pd.read_csv(CSV_ORDERS)
     except: return pd.DataFrame()
@@ -338,6 +324,10 @@ def load_invoices():
 def load_logs():
     try: return pd.read_csv(CSV_LOGS)
     except: return pd.DataFrame(columns=["Log_ID", "Time", "Action", "User", "Order_ID", "Details"])
+
+def load_partners():
+    try: return pd.read_csv(CSV_PARTNERS)
+    except: return pd.DataFrame()
 
 def save_order(order_data):
     try:
@@ -404,6 +394,10 @@ def export_to_csv(df):
 
 if 'admin_logged_in' not in st.session_state:
     st.session_state.admin_logged_in = False
+if 'is_partner_logged_in' not in st.session_state:
+    st.session_state.is_partner_logged_in = False
+if 'partner_brand' not in st.session_state:
+    st.session_state.partner_brand = None
 if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'brand_lock' not in st.session_state:
@@ -417,10 +411,17 @@ if 'theme' not in st.session_state:
 
 def login_screen():
     load_css(st.session_state.theme)
-    st.markdown("<div style='height: 10vh'></div>", unsafe_allow_html=True)
+    init_databases() # Ensure databases exist for partner login check
     
+    st.markdown("<div style='height: 5vh'></div>", unsafe_allow_html=True)
+    
+    # Toggle between Admin and Partner Login
+    if 'login_mode' not in st.session_state:
+        st.session_state.login_mode = 'Admin'
+        
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
+        # LOGO
         st.markdown(f"""
         <div style="text-align:center; margin-bottom:20px;">
             <img src="{LOGO_URL}" style="width:120px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
@@ -428,26 +429,189 @@ def login_screen():
         </div>
         """, unsafe_allow_html=True)
 
+        # LOGIN MODE TOGGLE
+        mode_cols = st.columns(2)
+        with mode_cols[0]:
+            if st.button("👑 Yönetici", use_container_width=True): st.session_state.login_mode = 'Admin'
+        with mode_cols[1]:
+            if st.button("🤝 Partner", use_container_width=True): st.session_state.login_mode = 'Partner'
+
         st.markdown(f"""
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
-            <h2>YÖNETİM GİRİŞİ</h2>
-            <p style="opacity: 0.6; font-size: 13px; margin-bottom:20px;">GÜVENLİ OPERASYON SİSTEMİ v6.1</p>
+            <h2>{st.session_state.login_mode.upper()} GİRİŞİ</h2>
+            <p style="opacity: 0.6; font-size: 13px; margin-bottom:20px;">GÜVENLİ OPERASYON SİSTEMİ</p>
         """, unsafe_allow_html=True)
         
-        password = st.text_input("Erişim Şifresi", type="password", key="login", label_visibility="collapsed", placeholder="Şifrenizi Giriniz")
+        if st.session_state.login_mode == 'Admin':
+            password = st.text_input("Erişim Şifresi", type="password", key="admin_login", label_visibility="collapsed")
+            if st.button("🔓 GİRİŞ YAP", use_container_width=True):
+                if password == ADMIN_PASS:
+                    st.session_state.admin_logged_in = True
+                    log_action("GİRİŞ", "admin", "", "Admin Girişi")
+                    st.rerun()
+                else:
+                    st.error("❌ Hatalı şifre")
         
-        if st.button("🔓 SİSTEME GİRİŞ", use_container_width=True):
-            if password == ADMIN_PASS:
-                st.session_state.admin_logged_in = True
-                log_action("GİRİŞ", "admin", "", "Başarılı giriş")
-                st.rerun()
-            else:
-                st.error("❌ Hatalı şifre")
-        
+        else: # Partner Login
+            email = st.text_input("E-posta", key="partner_email")
+            pwd = st.text_input("Şifre", type="password", key="partner_pwd")
+            if st.button("🔓 PARTNER GİRİŞİ", use_container_width=True):
+                partners = load_partners()
+                user = partners[partners['partner_email'] == email]
+                if not user.empty and user.iloc[0]['password'] == pwd:
+                    st.session_state.is_partner_logged_in = True
+                    st.session_state.partner_brand = user.iloc[0]['brand_name']
+                    log_action("GİRİŞ", st.session_state.partner_brand, "", "Partner Girişi")
+                    st.rerun()
+                else:
+                    st.error("❌ Hatalı bilgiler")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ============================================================================
-# 7. ANA PANEL (DASHBOARD)
+# 7. PARTNER DASHBOARD (NEW v7.0)
+# ============================================================================
+
+def partner_dashboard():
+    load_css(st.session_state.theme)
+    brand = st.session_state.partner_brand
+    
+    # --- HEADER ---
+    col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
+    with col_h1:
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="{LOGO_URL}" style="height:40px;" onerror="this.style.display='none'">
+            <div>
+                <h1 style="margin:0; font-size:24px;">PARTNER PORTALI</h1>
+                <span style="font-size: 14px; color:{BRANDS[brand]['color']}; font-weight:700;">{brand}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_h3:
+        if st.button("🚪 Çıkış"):
+            st.session_state.is_partner_logged_in = False
+            st.session_state.partner_brand = None
+            st.rerun()
+            
+    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+    
+    # --- ALERTS ---
+    df_orders = load_orders()
+    brand_orders = df_orders[df_orders['Brand'] == brand]
+    
+    new_orders = brand_orders[brand_orders['Status'] == 'Pending']
+    if len(new_orders) > 0:
+        st.markdown(f"""<div class="radiant-reminder">🔔 {len(new_orders)} YENİ SİPARİŞ BEKLİYOR! <span style="font-size:10px;">LÜTFEN ONAYLAYIN</span></div>""", unsafe_allow_html=True)
+
+    # --- TABS ---
+    tabs = st.tabs(["📥 YENİ SİPARİŞLER", "🚚 KARGO TAKİBİ", "✅ TAMAMLANANLAR", "💰 HAKEDİŞLER", "💬 MESAJLAR", "📜 LOGLAR"])
+    
+    # 1. NEW ORDERS (INBOX)
+    with tabs[0]:
+        st.markdown("### 📥 Gelen Siparişler")
+        if new_orders.empty:
+            st.info("Bekleyen yeni sipariş yok.")
+        else:
+            for idx, row in new_orders.iterrows():
+                original_idx = df_orders.index[df_orders['Order_ID'] == row['Order_ID']][0]
+                
+                with st.expander(f"🆕 {row['Order_ID']} - {row['Items']}", expanded=True):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.markdown(f"**Müşteri:** {row['Customer']}\n\n**Adres:** {row['Address']}")
+                    with c2:
+                        st.metric("Hakediş", f"{row['Brand_Payout']:,.0f}₺")
+                        if st.button("✅ Siparişi Onayla", key=f"acc_{row['Order_ID']}"):
+                            df_orders.at[original_idx, 'Status'] = 'Notified' # "Accepted" equivalent logic
+                            df_orders.at[original_idx, 'WhatsApp_Sent'] = 'YES' # Mark as acknowledged
+                            update_orders(df_orders)
+                            log_action("ONAY", brand, row['Order_ID'], "Marka siparişi onayladı")
+                            st.success("Sipariş onaylandı, hazırlığa başlayın.")
+                            time.sleep(1)
+                            st.rerun()
+
+    # 2. SHIPPING
+    with tabs[1]:
+        st.markdown("### 🚚 Kargo ve Takip")
+        to_ship = brand_orders[brand_orders['Status'] == 'Notified']
+        
+        if to_ship.empty:
+            st.info("Kargolanacak sipariş yok.")
+        else:
+            for idx, row in to_ship.iterrows():
+                original_idx = df_orders.index[df_orders['Order_ID'] == row['Order_ID']][0]
+                
+                with st.expander(f"📦 {row['Order_ID']} - {row['Customer']}", expanded=True):
+                    track_no = st.text_input("Kargo Takip No", key=f"pt_trk_{row['Order_ID']}")
+                    courier = st.selectbox("Kargo Firması", ["Yurtiçi", "Aras", "MNG", "PTT", "Diğer"], key=f"pt_cr_{row['Order_ID']}")
+                    
+                    if st.button("🚀 Kargoya Verildi", key=f"pt_ship_{row['Order_ID']}"):
+                        if track_no:
+                            df_orders.at[original_idx, 'Status'] = 'Dispatched'
+                            df_orders.at[original_idx, 'Tracking_Num'] = f"{courier} - {track_no}"
+                            df_orders.at[original_idx, 'Last_Modified'] = datetime.now()
+                            update_orders(df_orders)
+                            log_action("KARGO", brand, row['Order_ID'], f"Takip no girildi: {track_no}")
+                            st.success("Kargo bilgisi sisteme girildi!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Lütfen takip numarası girin.")
+
+    # 3. COMPLETED
+    with tabs[2]:
+        st.markdown("### ✅ Tamamlanan Siparişler")
+        done = brand_orders[brand_orders['Status'].isin(['Dispatched', 'Completed'])]
+        if not done.empty:
+            st.dataframe(done[['Order_ID', 'Time', 'Items', 'Brand_Payout', 'Status', 'Tracking_Num']], use_container_width=True)
+        else:
+            st.info("Henüz tamamlanan sipariş yok.")
+
+    # 4. FINANCE
+    with tabs[3]:
+        st.markdown("### 💰 Finansal Özet")
+        
+        completed_val = brand_orders[brand_orders['Status'] == 'Completed']['Brand_Payout'].sum()
+        df_pay = load_payments()
+        my_payments = df_pay[df_pay['Brand'] == brand]
+        paid_val = my_payments['Amount'].sum()
+        balance = completed_val - paid_val
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Toplam Hakediş", f"{completed_val:,.0f}₺")
+        c2.metric("Ödenen", f"{paid_val:,.0f}₺")
+        c3.metric("Kalan Bakiye", f"{balance:,.0f}₺", delta_color="normal")
+        
+        st.markdown("#### 📜 Ödeme Geçmişi")
+        if not my_payments.empty:
+            st.dataframe(my_payments[['Time', 'Amount', 'Reference', 'Status']], use_container_width=True)
+        else:
+            st.info("Henüz ödeme alınmadı.")
+
+    # 5. MESSAGING
+    with tabs[4]:
+        st.markdown("### 💬 Yöneticiyle İletişim")
+        with st.form("msg_form"):
+            subject = st.text_input("Konu")
+            msg = st.text_area("Mesajınız")
+            ref_order = st.selectbox("İlgili Sipariş (Opsiyonel)", ["Genel"] + brand_orders['Order_ID'].tolist())
+            
+            if st.form_submit_button("Gönder"):
+                log_action("MESAJ", brand, ref_order, f"{subject}: {msg}")
+                st.success("Mesajınız yöneticiye iletildi.")
+
+    # 6. LOGS
+    with tabs[5]:
+        st.markdown("### 📜 İşlem Kayıtları")
+        logs = load_logs()
+        my_logs = logs[logs['User'] == brand].sort_values('Time', ascending=False)
+        st.dataframe(my_logs, use_container_width=True)
+        
+    render_os_footer()
+
+# ============================================================================
+# 8. ADMIN DASHBOARD (EXISTING)
 # ============================================================================
 
 def dashboard():
@@ -525,7 +689,6 @@ def dashboard():
     with tabs[5]: render_faqs()
     with tabs[6]: render_logs_advanced()
 
-    # --- OS FOOTER (NEW v6.1) ---
     render_os_footer()
 
 def render_os_footer():
@@ -534,7 +697,7 @@ def render_os_footer():
         <img src="{LOGO_URL}" class="os-footer-logo" onerror="this.style.display='none'">
         <div class="os-grid">
             <div>
-                <strong>NATUVISIO ADMIN OS v6.1</strong><br>
+                <strong>NATUVISIO ADMIN OS v7.0</strong><br>
                 <span class="os-status-dot"></span> System Operational<br>
                 Last Sync: {datetime.now().strftime('%H:%M:%S')}
             </div>
@@ -863,8 +1026,38 @@ def render_brand_payout_hq():
         st.info("Henüz ödeme kaydı yok.")
 
 # ============================================================================
-# 11. LOGS & ANALYTICS
+# 11. DİĞER FONKSİYONLAR
 # ============================================================================
+
+def render_all_orders():
+    radiant_line()
+    st.markdown("### 📦 Tüm Sipariş Geçmişi")
+    df = load_orders()
+    if not df.empty:
+        st.dataframe(df.sort_values('Time', ascending=False), use_container_width=True)
+    else:
+        st.info("Kayıt yok")
+
+def render_analytics():
+    radiant_line()
+    st.markdown("### 📊 Analitik Raporlar")
+    df = load_orders()
+    if not df.empty:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Marka Bazlı Satış**")
+            st.bar_chart(df.groupby('Brand')['Total_Value'].sum())
+        with col2:
+            st.markdown("**Durum Dağılımı**")
+            st.bar_chart(df['Status'].value_counts())
+
+def render_faqs():
+    radiant_line()
+    st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
+    with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
+        st.markdown("""Bu panel, NATUVISIO'nun tüm marka partnerleri için tek merkezden sevkiyat, finans ve mutabakat yönetimini sağlar.""")
+    with st.expander("2. Sipariş akışı: İlk adımdan marka ödemesine kadar", expanded=False):
+        st.markdown("""1. YENİ SEVKİYAT > Sipariş Gir\n2. OPERASYON > WhatsApp Gönder\n3. Kargo Takip > Gir & Tamamla\n4. FATURA & ÖDEME > Marka Hakedişini Öde""")
 
 def render_logs_advanced():
     radiant_line()
@@ -920,42 +1113,14 @@ def render_logs_advanced():
         mime='text/csv',
     )
 
-def render_all_orders():
-    radiant_line()
-    st.markdown("### 📦 Tüm Sipariş Geçmişi")
-    df = load_orders()
-    if not df.empty:
-        st.dataframe(df.sort_values('Time', ascending=False), use_container_width=True)
-    else:
-        st.info("Kayıt yok")
-
-def render_analytics():
-    radiant_line()
-    st.markdown("### 📊 Analitik Raporlar")
-    df = load_orders()
-    if not df.empty:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Marka Bazlı Satış**")
-            st.bar_chart(df.groupby('Brand')['Total_Value'].sum())
-        with col2:
-            st.markdown("**Durum Dağılımı**")
-            st.bar_chart(df['Status'].value_counts())
-
-def render_faqs():
-    radiant_line()
-    st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
-    with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
-        st.markdown("""Bu panel, NATUVISIO'nun tüm marka partnerleri için tek merkezden sevkiyat, finans ve mutabakat yönetimini sağlar.""")
-    with st.expander("2. Sipariş akışı: İlk adımdan marka ödemesine kadar", expanded=False):
-        st.markdown("""1. YENİ SEVKİYAT > Sipariş Gir\n2. OPERASYON > WhatsApp Gönder\n3. Kargo Takip > Gir & Tamamla\n4. FATURA & ÖDEME > Marka Hakedişini Öde""")
-
 # ============================================================================
-# 12. ANA ÇALIŞTIRMA (MAIN)
+# 13. ANA ÇALIŞTIRMA (MAIN)
 # ============================================================================
 
 if __name__ == "__main__":
-    if not st.session_state.admin_logged_in:
-        login_screen()
-    else:
+    if st.session_state.admin_logged_in:
         dashboard()
+    elif st.session_state.is_partner_logged_in:
+        partner_dashboard()
+    else:
+        login_screen()
