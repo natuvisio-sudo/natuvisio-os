@@ -1,837 +1,1126 @@
-# app.py
-"""
-NATUVISIO Health Hub – Frontend Prototype
-Built with Streamlit (Python) + embedded HTML/CSS (frontend layer)
-
-Run with:
-    streamlit run app.py
-"""
-
 import streamlit as st
-from datetime import datetime
-import pytz
+import pandas as pd
+import numpy as np
+import os
+import io
+import time
+from datetime import datetime, timedelta
+import urllib.parse
 
-# ------------------------------------------------------------------
-# 1) PAGE CONFIG
-# ------------------------------------------------------------------
+# ============================================================================
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V7.0 (PARTNER PORTAL ENTEGRASYONU)
+# ============================================================================
+
 st.set_page_config(
-    page_title="NATUVISIO Health Hub",
-    page_icon="🧬",
+    page_title="NATUVISIO OS",
+    page_icon="🏔️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
-# ------------------------------------------------------------------
-# 2) GLOBAL CSS – NEW ZAPIENS STYLE, BUT NATUVISIO BRANDING
-# ------------------------------------------------------------------
-def inject_global_css():
-    st.markdown(
-        """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+# ============================================================================
+# 1. AYARLAR (CONFIG)
+# ============================================================================
 
-:root {
-  --nv-bg: #f5f1e8;
-  --nv-bg-soft: #faf6f0;
-  --nv-bg-card: #ffffff;
-  --nv-text: #111827;
-  --nv-muted: #6b7280;
-  --nv-border-subtle: rgba(15, 23, 42, 0.06);
-  --nv-accent: #ff7a3c;         /* warm orange (like NewZapiens) */
-  --nv-accent-soft: rgba(255, 122, 60, 0.08);
-  --nv-brand: #5b7354;          /* NATUVISIO sage */
-  --nv-brand-soft: rgba(91, 115, 84, 0.08);
-  --nv-radius-card: 22px;
-  --nv-shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.06);
+ADMIN_PASS = "admin2025"
+CSV_ORDERS = "orders_complete.csv"
+CSV_PAYMENTS = "brand_payments.csv" 
+CSV_INVOICES = "brand_invoices.csv" 
+CSV_LOGS = "system_logs.csv"
+CSV_PARTNERS = "partners.csv" # YENİ DATABASE
+PHI = 1.618
+
+FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
+
+LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v1764805291/natuvisio_logo_gtqtfs.png"
+BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
+
+BRANDS = {
+    "HAKI HEAL": {
+        "phone": "601158976276",
+        "color": "#4ECDC4",
+        "commission": 0.15,
+        "iban": "TR90 0006 1000 0000 1234 5678 90",
+        "account_name": "Haki Heal Ltd. Şti.",
+        "products": {
+            "HAKI HEAL KREM": {"sku": "SKU-HAKI-CRM-01", "price": 450},
+            "HAKI HEAL VÜCUT LOSYONU": {"sku": "SKU-HAKI-BODY-01", "price": 380},
+            "HAKI HEAL SABUN": {"sku": "SKU-HAKI-SOAP-01", "price": 120}
+        }
+    },
+    "AURORACO": {
+        "phone": "601158976276",
+        "color": "#FF6B6B",
+        "commission": 0.20,
+        "iban": "TR90 0006 2000 0000 9876 5432 10",
+        "account_name": "Auroraco Gıda A.Ş.",
+        "products": {
+            "AURORACO MATCHA EZMESİ": {"sku": "SKU-AUR-MATCHA", "price": 650},
+            "AURORACO KAKAO EZMESİ": {"sku": "SKU-AUR-CACAO", "price": 550},
+            "AURORACO SÜPER GIDA": {"sku": "SKU-AUR-SUPER", "price": 800}
+        }
+    },
+    "LONGEVICALS": {
+        "phone": "601158976276",
+        "color": "#95E1D3",
+        "commission": 0.12,
+        "iban": "TR90 0001 5000 0000 1122 3344 55",
+        "account_name": "Longevicals Sağlık Ürünleri",
+        "products": {
+            "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
+            "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
+        }
+    }
 }
 
-/* Reset Streamlit default background */
-.stApp {
-  background-color: var(--nv-bg) !important;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-}
+# ============================================================================
+# 2. İKON SETİ (ICONS)
+# ============================================================================
 
-/* Hide default menu/footer */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {background: transparent;}
+def get_icon(name, color="#5b7354", size=24):
+    icons = {
+        "mountain": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M3 20L9 8L12 14L15 6L21 20H3Z"/></svg>',
+        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>',
+        "check": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3"><path d="M20 6L9 17L4 12"/></svg>',
+        "bill": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="18" y2="12"/><line x1="6" y1="16" x2="6" y2="16"/><line x1="10" y1="16" x2="18" y2="16"/></svg>',
+        "money": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+        "clock": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        "activity": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+        "log": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'
+    }
+    return icons.get(name, "")
 
-/* Layout max width */
-.block-container {
-  padding-top: 0.5rem !important;
-  padding-bottom: 4rem !important;
-  max-width: 1200px;
-}
+# ============================================================================
+# 3. CSS & THEME ENGINE
+# ============================================================================
 
-/* Top nav */
-.nv-nav {
-  position: sticky;
-  top: 0;
-  z-index: 99;
-  backdrop-filter: blur(12px);
-  background: linear-gradient(to bottom,
-    rgba(245,241,232,0.95),
-    rgba(245,241,232,0.88),
-    rgba(245,241,232,0.00)
-  );
-  padding: 14px 0 8px;
-}
+def load_css(theme="light"):
+    if theme == "light":
+        overlay_color = "rgba(255, 255, 255, 0.15)"
+        glass_bg = "rgba(255, 255, 255, 0.65)"
+        glass_border = "rgba(91, 115, 84, 0.2)"
+        text_color = "#0f172a"
+        subtext_color = "#475569"
+        input_bg = "rgba(255, 255, 255, 0.75)"
+        shadow = "0 4px 24px rgba(0, 0, 0, 0.06)"
+        btn_gradient = "linear-gradient(135deg, #5b7354, #4a6b45)"
+    else:
+        overlay_color = "rgba(15, 23, 42, 0.85)"
+        glass_bg = "rgba(255, 255, 255, 0.04)"
+        glass_border = "rgba(255, 255, 255, 0.08)"
+        text_color = "#ffffff"
+        subtext_color = "rgba(255, 255, 255, 0.6)"
+        input_bg = "rgba(0, 0, 0, 0.3)"
+        shadow = "0 8px 32px rgba(0, 0, 0, 0.3)"
+        btn_gradient = "linear-gradient(135deg, #4ECDC4, #44A08D)"
 
-.nv-nav-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
+    st.markdown(f"""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        
+        .stApp {{
+            background-image: linear-gradient({overlay_color}, {overlay_color}), 
+                              url("{BG_IMAGE}");
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: {text_color};
+        }}
+        
+        /* RADIANT REMINDER BUTTON */
+        .radiant-reminder {{
+            background: rgba(255, 0, 0, 0.08);
+            border-left: 3px solid #ef4444;
+            color: #b91c1c;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            animation: pulse-red 1.8s infinite ease-in-out;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+        }}
+        
+        @keyframes pulse-red {{
+            0% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }}
+            70% {{ box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }}
+            100% {{ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }}
+        }}
 
-.nv-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 15px;
-}
+        .glass-card {{
+            background: {glass_bg};
+            backdrop-filter: blur(20px);
+            border: 1px solid {glass_border};
+            border-radius: {FIBO['sm']}px;
+            padding: {FIBO['md']}px;
+            margin-bottom: {FIBO['sm']}px;
+            box-shadow: {shadow};
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }}
+        
+        .glass-card:hover {{
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+        }}
+        
+        .metric-value {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 26px;
+            font-weight: 800;
+            color: {text_color};
+            letter-spacing: -0.02em;
+        }}
+        
+        .metric-label {{
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: {subtext_color};
+            font-weight: 700;
+            margin-bottom: 4px;
+        }}
+        
+        h1, h2, h3, h4, h5, h6 {{
+            font-family: 'Space Grotesk', sans-serif !important;
+            color: {text_color} !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.03em !important;
+        }}
+        
+        div.stButton > button {{
+            background: {btn_gradient} !important;
+            color: white !important;
+            border: none !important;
+            padding: {FIBO['sm']}px {FIBO['md']}px !important;
+            border-radius: 8px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            font-size: 13px !important;
+            letter-spacing: 0.5px !important;
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(91, 115, 84, 0.25) !important;
+        }}
+        
+        div.stButton > button:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(91, 115, 84, 0.4) !important;
+        }}
+        
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea,
+        .stSelectbox > div > div > select,
+        .stNumberInput > div > div > input {{
+            background: {input_bg} !important;
+            border: 1px solid {glass_border} !important;
+            color: {text_color} !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+        }}
+        
+        .radiant-line {{
+            background: linear-gradient(90deg, rgba(91,115,84,0), rgba(91,115,84,0.3), rgba(91,115,84,0));
+            height: 1px;
+            margin: 35px 0;
+            width: 100%;
+        }}
+        
+        .stCheckbox label {{ color: {text_color} !important; }}
+        #MainMenu, header, footer {{ visibility: hidden; }}
+        
+        .os-footer {{
+            margin-top: 50px;
+            padding: 30px;
+            border-top: 1px solid rgba(91, 115, 84, 0.15);
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            color: {subtext_color};
+            background: {glass_bg};
+            backdrop-filter: blur(10px);
+        }}
+        .os-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: left;
+        }}
+    </style>
+    """, unsafe_allow_html=True)
 
-.nv-logo-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 99px;
-  background: radial-gradient(circle at 30% 20%, #ffe1cb, #ff7a3c);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #111827;
-  font-size: 16px;
-}
+def radiant_line():
+    st.markdown('<div class="radiant-line"></div>', unsafe_allow_html=True)
 
-.nv-nav-links {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  font-size: 13px;
-}
+# ============================================================================
+# 4. VERİTABANI YÖNETİMİ
+# ============================================================================
 
-.nv-nav-link {
-  color: var(--nv-muted);
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.2s ease, transform 0.1s ease;
-}
+def init_databases():
+    if not os.path.exists(CSV_ORDERS):
+        pd.DataFrame(columns=[
+            "Order_ID", "Time", "Brand", "Customer", "Phone", "Address",
+            "Items", "Total_Value", "Commission_Rate", "Commission_Amt",
+            "Brand_Payout", "Status", "WhatsApp_Sent", "Tracking_Num",
+            "Priority", "Notes", "Created_By", "Last_Modified"
+        ]).to_csv(CSV_ORDERS, index=False)
+    
+    if not os.path.exists(CSV_PAYMENTS):
+        pd.DataFrame(columns=[
+            "Payment_ID", "Time", "Brand", "Amount", "Method", "Reference", 
+            "Status", "Proof_File", "Notes", 
+            "Fatura_Sent", "Fatura_Date", "Fatura_Explanation"
+        ]).to_csv(CSV_PAYMENTS, index=False)
+    else:
+        df = pd.read_csv(CSV_PAYMENTS)
+        if "Fatura_Sent" not in df.columns:
+            df["Fatura_Sent"] = "No"
+            df["Fatura_Date"] = ""
+            df["Fatura_Explanation"] = ""
+            df.to_csv(CSV_PAYMENTS, index=False)
+        
+    if not os.path.exists(CSV_INVOICES):
+        pd.DataFrame(columns=[
+            "Invoice_ID", "Time", "Brand", "Amount", "Date_Range", 
+            "Invoice_Number", "Status", "Notes"
+        ]).to_csv(CSV_INVOICES, index=False)
+    
+    if not os.path.exists(CSV_LOGS):
+        pd.DataFrame(columns=[
+            "Log_ID", "Time", "Action", "User", "Order_ID", "Details"
+        ]).to_csv(CSV_LOGS, index=False)
 
-.nv-nav-link:hover {
-  color: var(--nv-text);
-  transform: translateY(-1px);
-}
+    # PARTNER DATABASE (NEW v7.0)
+    if not os.path.exists(CSV_PARTNERS):
+        # Create default partners
+        data = {
+            "partner_email": ["haki@natuvisio.com", "aurora@natuvisio.com", "long@natuvisio.com"],
+            "password": ["haki2025", "aurora2025", "long2025"], # Plain text for demo simplicity
+            "brand_name": ["HAKI HEAL", "AURORACO", "LONGEVICALS"],
+            "created_at": [datetime.now(), datetime.now(), datetime.now()],
+            "status": ["Active", "Active", "Active"]
+        }
+        pd.DataFrame(data).to_csv(CSV_PARTNERS, index=False)
 
-.nv-nav-cta {
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(17, 24, 39, 0.1);
-  font-size: 13px;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  background: #111827;
-  color: #f9fafb !important;
-}
+def load_orders():
+    try: return pd.read_csv(CSV_ORDERS)
+    except: return pd.DataFrame()
 
-.nv-nav-cta span {
-  font-size: 11px;
-  opacity: 0.8;
-}
+def load_payments():
+    try: return pd.read_csv(CSV_PAYMENTS)
+    except: return pd.DataFrame()
 
-/* Hero section */
-.nv-hero {
-  padding: 40px 0 32px;
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 40px;
-  align-items: center;
-}
+def load_invoices():
+    try: return pd.read_csv(CSV_INVOICES)
+    except: return pd.DataFrame()
 
-@media (max-width: 900px) {
-  .nv-hero {
-    grid-template-columns: minmax(0, 1fr);
-    padding-top: 24px;
-  }
-}
+def load_logs():
+    try: return pd.read_csv(CSV_LOGS)
+    except: return pd.DataFrame(columns=["Log_ID", "Time", "Action", "User", "Order_ID", "Details"])
 
-.nv-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--nv-accent-soft);
-  color: #7c2d12;
-  font-size: 11px;
-  font-weight: 500;
-  margin-bottom: 12px;
-}
+def load_partners():
+    try: return pd.read_csv(CSV_PARTNERS)
+    except: return pd.DataFrame()
 
-.nv-pill-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--nv-accent);
-}
+def save_order(order_data):
+    try:
+        df = load_orders()
+        df = pd.concat([df, pd.DataFrame([order_data])], ignore_index=True)
+        df.to_csv(CSV_ORDERS, index=False)
+        log_action("SİPARİŞ_OLUŞTURULDU", "admin", order_data['Order_ID'], f"Oluşturuldu: {order_data['Order_ID']}")
+        return True
+    except Exception as e:
+        st.error(f"Kayıt hatası: {e}")
+        return False
 
-.nv-hero-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: clamp(32px, 4vw, 42px);
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-  color: var(--nv-text);
-  margin-bottom: 12px;
-}
+def update_orders(df):
+    try:
+        df.to_csv(CSV_ORDERS, index=False)
+        return True
+    except: return False
 
-.nv-hero-title span {
-  font-weight: 700;
-}
+def save_payment(payment_data):
+    try:
+        df = load_payments()
+        df = pd.concat([df, pd.DataFrame([payment_data])], ignore_index=True)
+        df.to_csv(CSV_PAYMENTS, index=False)
+        log_action("ÖDEME_KAYDI", "admin", "", f"{payment_data['Brand']} ödemesi kaydedildi")
+        return True
+    except: return False
 
-.nv-hero-sub {
-  font-size: 15px;
-  color: var(--nv-muted);
-  max-width: 460px;
-  margin-bottom: 18px;
-}
+def update_payments(df):
+    try:
+        df.to_csv(CSV_PAYMENTS, index=False)
+        return True
+    except: return False
 
-.nv-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-}
+def save_invoice(invoice_data):
+    try:
+        df = load_invoices()
+        df = pd.concat([df, pd.DataFrame([invoice_data])], ignore_index=True)
+        df.to_csv(CSV_INVOICES, index=False)
+        log_action("FATURA_KESİLDİ", "admin", "", f"{invoice_data['Brand']} faturası oluşturuldu")
+        return True
+    except: return False
 
-.nv-btn-primary {
-  padding: 10px 18px;
-  border-radius: 999px;
-  border: none;
-  background: radial-gradient(circle at 0 0, #ffe3d1, #ff7a3c);
-  color: #111827;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 14px 30px rgba(148, 64, 20, 0.16);
-}
+def log_action(action, user, order_id, details):
+    try:
+        df = load_logs()
+        log_entry = {
+            'Log_ID': f"LOG-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'Action': action,
+            'User': user,
+            'Order_ID': order_id,
+            'Details': details
+        }
+        df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
+        df.to_csv(CSV_LOGS, index=False)
+    except: pass
 
-.nv-btn-secondary {
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(17, 24, 39, 0.1);
-  background: #fdfbf7;
-  color: #111827;
-  font-size: 13px;
-  cursor: pointer;
-}
+def export_to_csv(df):
+    return df.to_csv(index=False).encode('utf-8')
 
-.nv-hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  font-size: 11px;
-  color: var(--nv-muted);
-}
+# ============================================================================
+# 5. OTURUM YÖNETİMİ
+# ============================================================================
 
-/* Right hero card */
-.nv-hero-card {
-  background: var(--nv-bg-soft);
-  border-radius: 30px;
-  padding: 22px 22px 18px;
-  box-shadow: var(--nv-shadow-soft);
-  border: 1px solid var(--nv-border-subtle);
-}
+if 'admin_logged_in' not in st.session_state:
+    st.session_state.admin_logged_in = False
+if 'is_partner_logged_in' not in st.session_state:
+    st.session_state.is_partner_logged_in = False
+if 'partner_brand' not in st.session_state:
+    st.session_state.partner_brand = None
+if 'cart' not in st.session_state:
+    st.session_state.cart = []
+if 'brand_lock' not in st.session_state:
+    st.session_state.brand_lock = None
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'light' 
 
-.nv-hero-card-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
+# ============================================================================
+# 6. GİRİŞ EKRANI
+# ============================================================================
 
-.nv-hero-card-sub {
-  font-size: 12px;
-  color: var(--nv-muted);
-  margin-bottom: 14px;
-}
+def login_screen():
+    load_css(st.session_state.theme)
+    init_databases() # Ensure databases exist for partner login check
+    
+    st.markdown("<div style='height: 5vh'></div>", unsafe_allow_html=True)
+    
+    # Toggle between Admin and Partner Login
+    if 'login_mode' not in st.session_state:
+        st.session_state.login_mode = 'Admin'
+        
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        # LOGO
+        st.markdown(f"""
+        <div style="text-align:center; margin-bottom:20px;">
+            <img src="{LOGO_URL}" style="width:120px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));" onerror="this.style.display='none'">
+            <div style="font-family:'Space Grotesk'; font-size:32px; font-weight:800; color:#5b7354; margin-top:10px;">NATUVISIO</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-.nv-metric-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
+        # LOGIN MODE TOGGLE
+        mode_cols = st.columns(2)
+        with mode_cols[0]:
+            if st.button("👑 Yönetici", use_container_width=True): st.session_state.login_mode = 'Admin'
+        with mode_cols[1]:
+            if st.button("🤝 Partner", use_container_width=True): st.session_state.login_mode = 'Partner'
 
-.nv-metric {
-  padding: 10px 10px 9px;
-  border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(15,23,42,0.04);
-}
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
+            <h2>{st.session_state.login_mode.upper()} GİRİŞİ</h2>
+            <p style="opacity: 0.6; font-size: 13px; margin-bottom:20px;">GÜVENLİ OPERASYON SİSTEMİ</p>
+        """, unsafe_allow_html=True)
+        
+        if st.session_state.login_mode == 'Admin':
+            password = st.text_input("Erişim Şifresi", type="password", key="admin_login", label_visibility="collapsed")
+            if st.button("🔓 GİRİŞ YAP", use_container_width=True):
+                if password == ADMIN_PASS:
+                    st.session_state.admin_logged_in = True
+                    log_action("GİRİŞ", "admin", "", "Admin Girişi")
+                    st.rerun()
+                else:
+                    st.error("❌ Hatalı şifre")
+        
+        else: # Partner Login
+            email = st.text_input("E-posta", key="partner_email")
+            pwd = st.text_input("Şifre", type="password", key="partner_pwd")
+            if st.button("🔓 PARTNER GİRİŞİ", use_container_width=True):
+                partners = load_partners()
+                user = partners[partners['partner_email'] == email]
+                if not user.empty and user.iloc[0]['password'] == pwd:
+                    st.session_state.is_partner_logged_in = True
+                    st.session_state.partner_brand = user.iloc[0]['brand_name']
+                    log_action("GİRİŞ", st.session_state.partner_brand, "", "Partner Girişi")
+                    st.rerun()
+                else:
+                    st.error("❌ Hatalı bilgiler")
 
-.nv-metric-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--nv-muted);
-  margin-bottom: 3px;
-}
+        st.markdown("</div>", unsafe_allow_html=True)
 
-.nv-metric-value {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 600;
-  font-size: 17px;
-}
+# ============================================================================
+# 7. PARTNER DASHBOARD (NEW v7.0)
+# ============================================================================
 
-.nv-metric-detail {
-  font-size: 10px;
-  color: var(--nv-muted);
-}
+def partner_dashboard():
+    load_css(st.session_state.theme)
+    brand = st.session_state.partner_brand
+    
+    # --- HEADER ---
+    col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
+    with col_h1:
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="{LOGO_URL}" style="height:40px;" onerror="this.style.display='none'">
+            <div>
+                <h1 style="margin:0; font-size:24px;">PARTNER PORTALI</h1>
+                <span style="font-size: 14px; color:{BRANDS[brand]['color']}; font-weight:700;">{brand}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_h3:
+        if st.button("🚪 Çıkış"):
+            st.session_state.is_partner_logged_in = False
+            st.session_state.partner_brand = None
+            st.rerun()
+            
+    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+    
+    # --- ALERTS ---
+    df_orders = load_orders()
+    brand_orders = df_orders[df_orders['Brand'] == brand]
+    
+    new_orders = brand_orders[brand_orders['Status'] == 'Pending']
+    if len(new_orders) > 0:
+        st.markdown(f"""<div class="radiant-reminder">🔔 {len(new_orders)} YENİ SİPARİŞ BEKLİYOR! <span style="font-size:10px;">LÜTFEN ONAYLAYIN</span></div>""", unsafe_allow_html=True)
 
-/* Section wrappers */
-.nv-section {
-  margin-top: 40px;
-  margin-bottom: 10px;
-}
+    # --- TABS ---
+    tabs = st.tabs(["📥 YENİ SİPARİŞLER", "🚚 KARGO TAKİBİ", "✅ TAMAMLANANLAR", "💰 HAKEDİŞLER", "💬 MESAJLAR", "📜 LOGLAR"])
+    
+    # 1. NEW ORDERS (INBOX)
+    with tabs[0]:
+        st.markdown("### 📥 Gelen Siparişler")
+        if new_orders.empty:
+            st.info("Bekleyen yeni sipariş yok.")
+        else:
+            for idx, row in new_orders.iterrows():
+                original_idx = df_orders.index[df_orders['Order_ID'] == row['Order_ID']][0]
+                
+                with st.expander(f"🆕 {row['Order_ID']} - {row['Items']}", expanded=True):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.markdown(f"**Müşteri:** {row['Customer']}\n\n**Adres:** {row['Address']}")
+                    with c2:
+                        st.metric("Hakediş", f"{row['Brand_Payout']:,.0f}₺")
+                        if st.button("✅ Siparişi Onayla", key=f"acc_{row['Order_ID']}"):
+                            df_orders.at[original_idx, 'Status'] = 'Notified' # "Accepted" equivalent logic
+                            df_orders.at[original_idx, 'WhatsApp_Sent'] = 'YES' # Mark as acknowledged
+                            update_orders(df_orders)
+                            log_action("ONAY", brand, row['Order_ID'], "Marka siparişi onayladı")
+                            st.success("Sipariş onaylandı, hazırlığa başlayın.")
+                            time.sleep(1)
+                            st.rerun()
 
-.nv-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  margin-bottom: 16px;
-}
+    # 2. SHIPPING
+    with tabs[1]:
+        st.markdown("### 🚚 Kargo ve Takip")
+        to_ship = brand_orders[brand_orders['Status'] == 'Notified']
+        
+        if to_ship.empty:
+            st.info("Kargolanacak sipariş yok.")
+        else:
+            for idx, row in to_ship.iterrows():
+                original_idx = df_orders.index[df_orders['Order_ID'] == row['Order_ID']][0]
+                
+                with st.expander(f"📦 {row['Order_ID']} - {row['Customer']}", expanded=True):
+                    track_no = st.text_input("Kargo Takip No", key=f"pt_trk_{row['Order_ID']}")
+                    courier = st.selectbox("Kargo Firması", ["Yurtiçi", "Aras", "MNG", "PTT", "Diğer"], key=f"pt_cr_{row['Order_ID']}")
+                    
+                    if st.button("🚀 Kargoya Verildi", key=f"pt_ship_{row['Order_ID']}"):
+                        if track_no:
+                            df_orders.at[original_idx, 'Status'] = 'Dispatched'
+                            df_orders.at[original_idx, 'Tracking_Num'] = f"{courier} - {track_no}"
+                            df_orders.at[original_idx, 'Last_Modified'] = datetime.now()
+                            update_orders(df_orders)
+                            log_action("KARGO", brand, row['Order_ID'], f"Takip no girildi: {track_no}")
+                            st.success("Kargo bilgisi sisteme girildi!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Lütfen takip numarası girin.")
 
-.nv-section-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 22px;
-  letter-spacing: -0.03em;
-}
+    # 3. COMPLETED
+    with tabs[2]:
+        st.markdown("### ✅ Tamamlanan Siparişler")
+        done = brand_orders[brand_orders['Status'].isin(['Dispatched', 'Completed'])]
+        if not done.empty:
+            st.dataframe(done[['Order_ID', 'Time', 'Items', 'Brand_Payout', 'Status', 'Tracking_Num']], use_container_width=True)
+        else:
+            st.info("Henüz tamamlanan sipariş yok.")
 
-.nv-section-kicker {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--nv-muted);
-}
+    # 4. FINANCE
+    with tabs[3]:
+        st.markdown("### 💰 Finansal Özet")
+        
+        completed_val = brand_orders[brand_orders['Status'] == 'Completed']['Brand_Payout'].sum()
+        df_pay = load_payments()
+        my_payments = df_pay[df_pay['Brand'] == brand]
+        paid_val = my_payments['Amount'].sum()
+        balance = completed_val - paid_val
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Toplam Hakediş", f"{completed_val:,.0f}₺")
+        c2.metric("Ödenen", f"{paid_val:,.0f}₺")
+        c3.metric("Kalan Bakiye", f"{balance:,.0f}₺", delta_color="normal")
+        
+        st.markdown("#### 📜 Ödeme Geçmişi")
+        if not my_payments.empty:
+            st.dataframe(my_payments[['Time', 'Amount', 'Reference', 'Status']], use_container_width=True)
+        else:
+            st.info("Henüz ödeme alınmadı.")
 
-/* Cards */
-.nv-card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
+    # 5. MESSAGING
+    with tabs[4]:
+        st.markdown("### 💬 Yöneticiyle İletişim")
+        with st.form("msg_form"):
+            subject = st.text_input("Konu")
+            msg = st.text_area("Mesajınız")
+            ref_order = st.selectbox("İlgili Sipariş (Opsiyonel)", ["Genel"] + brand_orders['Order_ID'].tolist())
+            
+            if st.form_submit_button("Gönder"):
+                log_action("MESAJ", brand, ref_order, f"{subject}: {msg}")
+                st.success("Mesajınız yöneticiye iletildi.")
 
-@media (max-width: 1000px) {
-  .nv-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 700px) {
-  .nv-card-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+    # 6. LOGS
+    with tabs[5]:
+        st.markdown("### 📜 İşlem Kayıtları")
+        logs = load_logs()
+        my_logs = logs[logs['User'] == brand].sort_values('Time', ascending=False)
+        st.dataframe(my_logs, use_container_width=True)
+        
+    render_os_footer()
 
-.nv-card {
-  background: var(--nv-bg-card);
-  border-radius: var(--nv-radius-card);
-  padding: 16px 16px 14px;
-  border: 1px solid var(--nv-border-subtle);
-  box-shadow: 0 10px 28px rgba(15,23,42,0.03);
-}
+# ============================================================================
+# 8. ADMIN DASHBOARD (EXISTING)
+# ============================================================================
 
-.nv-card-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--nv-brand-soft);
-  color: var(--nv-brand);
-  margin-bottom: 8px;
-}
+def dashboard():
+    load_css(st.session_state.theme)
+    init_databases()
+    
+    # --- HEADER ---
+    col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
+    with col_h1:
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="{LOGO_URL}" style="height:45px;" onerror="this.style.display='none'">
+            <div>
+                <h1 style="margin:0; font-size:24px;">YÖNETİM MERKEZİ</h1>
+                <span style="font-size: 11px; opacity: 0.7; letter-spacing:1px; font-weight:600;">RETINA EDITION</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_h2:
+        if st.button("☀️/🌙", key="theme_toggle"):
+            st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+            st.rerun()
 
-.nv-card-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
+    with col_h3:
+        if st.button("🚪 Çıkış"):
+            st.session_state.admin_logged_in = False
+            st.session_state.cart = []
+            st.rerun()
+            
+    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+    
+    # --- RADIANT REMINDERS ---
+    df_orders = load_orders()
+    pending_notify = len(df_orders[df_orders['WhatsApp_Sent'] == 'NO'])
+    pending_track = len(df_orders[(df_orders['Status'] == 'Notified') & (df_orders['Tracking_Num'].isna())])
+    
+    if pending_notify > 0:
+        st.markdown(f"""<div class="radiant-reminder">⚠️ {pending_notify} SİPARİŞ BİLDİRİM BEKLİYOR! <span style="font-size:10px; opacity:0.7;">OPERASYON'A GİT</span></div>""", unsafe_allow_html=True)
+    if pending_track > 0:
+        st.markdown(f"""<div class="radiant-reminder">📦 {pending_track} KARGO TAKİP NO EKSİK! <span style="font-size:10px; opacity:0.7;">OPERASYON'A GİT</span></div>""", unsafe_allow_html=True)
 
-.nv-card-body {
-  font-size: 13px;
-  color: var(--nv-muted);
-  margin-bottom: 12px;
-}
+    # --- METRICS ---
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    total_rev = df_orders['Total_Value'].sum() if not df_orders.empty else 0
+    total_comm = df_orders['Commission_Amt'].sum() if not df_orders.empty else 0
+    pending_count = len(df_orders[df_orders['Status'] == 'Pending'])
+    
+    with col_m1:
+        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM CİRO</div><div class="metric-value">{total_rev:,.0f}₺</div></div>""", unsafe_allow_html=True)
+    with col_m2:
+        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #4ECDC4;"><div class="metric-label">NET KOMİSYON</div><div class="metric-value" style="color:#4ECDC4;">{total_comm:,.0f}₺</div></div>""", unsafe_allow_html=True)
+    with col_m3:
+        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #F59E0B;"><div class="metric-label">BEKLEYEN İŞLEM</div><div class="metric-value" style="color:#F59E0B;">{pending_count}</div></div>""", unsafe_allow_html=True)
+    with col_m4:
+        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM SİPARİŞ</div><div class="metric-value">{len(df_orders)}</div></div>""", unsafe_allow_html=True)
 
-.nv-card-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  color: var(--nv-muted);
-}
+    radiant_line()
 
-/* Reviews (simple) */
-.nv-review {
-  border-radius: 18px;
-  padding: 14px 14px 12px;
-  background: #111827;
-  color: #f9fafb;
-  border: 1px solid rgba(248, 250, 252, 0.08);
-}
+    tabs = st.tabs([
+        "🚀 YENİ SEVKİYAT", 
+        "✅ OPERASYON", 
+        "🏦 FATURA & ÖDEME", 
+        "📦 TÜM SİPARİŞLER",
+        "📊 ANALİTİK",
+        "❔ REHBER",
+        "📜 LOG KAYITLARI"
+    ])
+    
+    with tabs[0]: render_new_dispatch()
+    with tabs[1]: render_operations()
+    with tabs[2]: render_brand_payout_hq()
+    with tabs[3]: render_all_orders()
+    with tabs[4]: render_analytics()
+    with tabs[5]: render_faqs()
+    with tabs[6]: render_logs_advanced()
 
-.nv-review-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-}
+    render_os_footer()
 
-.nv-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ff7a3c, #f97316);
-}
-
-.nv-review-name {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.nv-review-detail {
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-/* Footer */
-.nv-footer {
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(17, 24, 39, 0.08);
-  font-size: 11px;
-  color: var(--nv-muted);
-}
-
-.nv-footer-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-/* Small helper badge */
-.nv-badge-soft {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 7px;
-  font-size: 10px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.03);
-  color: var(--nv-muted);
-}
-
-/* Anchor offsets for smooth scroll targeting */
-.anchor {
-  scroll-margin-top: 80px;
-}
-</style>
-""",
-        unsafe_allow_html=True,
-    )
-
-
-inject_global_css()
-
-# ------------------------------------------------------------------
-# 3) TOP NAV
-# ------------------------------------------------------------------
-with st.container():
-    st.markdown(
-        """
-<div class="nv-nav">
-  <div class="nv-nav-inner">
-    <div class="nv-logo">
-      <div class="nv-logo-mark">N</div>
-      <div>NATUVISIO <span style="opacity:0.6;">HEALTH HUB</span></div>
+def render_os_footer():
+    st.markdown(f"""
+    <div class="os-footer">
+        <img src="{LOGO_URL}" class="os-footer-logo" onerror="this.style.display='none'">
+        <div class="os-grid">
+            <div>
+                <strong>NATUVISIO ADMIN OS v7.0</strong><br>
+                <span class="os-status-dot"></span> System Operational<br>
+                Last Sync: {datetime.now().strftime('%H:%M:%S')}
+            </div>
+            <div>
+                <strong>DATA INTEGRITY</strong><br>
+                Orders: orders_complete.csv<br>
+                Financials: brand_payments.csv
+            </div>
+            <div>
+                <strong>OPERATIONS</strong><br>
+                Support: operations@natuvisio.com<br>
+                Emergency: +90 535 926 49 91
+            </div>
+            <div>
+                <strong>SECURITY</strong><br>
+                Log Active. Unauthorized access prohibited.<br>
+                Internal Use Only.
+            </div>
+        </div>
     </div>
-    <div class="nv-nav-links">
-      <a class="nv-nav-link" href="#hero">Overview</a>
-      <a class="nv-nav-link" href="#stacks">Health stacks</a>
-      <a class="nv-nav-link" href="#reviews">Reviews</a>
-      <a class="nv-nav-link" href="#magazine">Articles</a>
-      <a class="nv-nav-link" href="#footer">About</a>
-      <a class="nv-nav-cta" href="mailto:hello@natuvisio.com">
-        Partner with us
-        <span>Brand / Klinik / Diyetisyen</span>
-      </a>
-    </div>
-  </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================================
+# 8. YENİ SEVKİYAT MODÜLÜ
+# ============================================================================
+
+def render_new_dispatch():
+    col_L, col_R = st.columns([PHI, 1])
+    
+    with col_L:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 👤 Müşteri Bilgileri")
+        col_n, col_p = st.columns(2)
+        with col_n: cust_name = st.text_input("Ad Soyad", key="cust_name")
+        with col_p: cust_phone = st.text_input("Telefon", key="cust_phone")
+        cust_addr = st.text_area("Adres", key="cust_addr", height=80)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 🛒 Ürün Seçimi")
+        
+        if st.session_state.cart:
+            st.info(f"🔒 Kilitli Marka: {st.session_state.brand_lock}")
+            active_brand = st.session_state.brand_lock
+        else:
+            active_brand = st.selectbox("Marka Seçiniz", list(BRANDS.keys()), key="brand_sel")
+            
+        brand_data = BRANDS[active_brand]
+        products = list(brand_data["products"].keys())
+        
+        col_p, col_q = st.columns([3, 1])
+        with col_p: prod = st.selectbox("Ürün", products, key="prod_sel")
+        with col_q: qty = st.number_input("Adet", 1, value=1, key="qty")
+        
+        prod_details = brand_data["products"][prod]
+        unit_price = prod_details['price']
+        line_total = unit_price * qty
+        comm_amt = line_total * brand_data['commission']
+        payout = line_total - comm_amt
+        
+        if st.button("➕ Sepete Ekle"):
+            st.session_state.cart.append({
+                "brand": active_brand,
+                "product": prod,
+                "sku": prod_details['sku'],
+                "qty": qty,
+                "unit_price": unit_price,
+                "subtotal": line_total,
+                "comm_amt": comm_amt,
+                "payout": payout
+            })
+            st.session_state.brand_lock = active_brand
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_R:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 📦 Sepet Özeti")
+        
+        if st.session_state.cart:
+            for item in st.session_state.cart:
+                item_html = f"""
+<div style="background: rgba(128,128,128,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(128,128,128,0.1);">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+<span style="font-weight:700; font-size:14px;">{item['product']}</span>
+<span style="background:rgba(78,205,196,0.2); color:#4ECDC4; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">x{item['qty']}</span>
 </div>
-""",
-        unsafe_allow_html=True,
-    )
-
-# ------------------------------------------------------------------
-# 4) HERO SECTION
-# ------------------------------------------------------------------
-with st.container():
-    st.markdown('<div id="hero" class="anchor"></div>', unsafe_allow_html=True)
-
-    col_left, col_right = st.columns([1.2, 1])
-
-    with col_left:
-        st.markdown(
-            """
-<div class="nv-hero">
-  <div>
-    <div class="nv-pill">
-      <div class="nv-pill-dot"></div>
-      Helping people make trusted health decisions, faster
-    </div>
-    <div class="nv-hero-title">
-      Healthspan maximization<br/>
-      <span>for busy beginners in Turkey</span>
-    </div>
-    <p class="nv-hero-sub">
-      NATUVISIO Health Hub is a curated space where real people, real science
-      and transparent brands meet. No abartılı vaadler, no noise — just
-      the signal you need to choose wisely.
-    </p>
-
-    <div class="nv-hero-actions">
-      <button class="nv-btn-primary" onclick="window.location.hash='#stacks';">
-        Build my first health stack
-      </button>
-      <button class="nv-btn-secondary" onclick="window.location.hash='#magazine';">
-        Read the science-first guide
-      </button>
-    </div>
-
-    <div class="nv-hero-meta">
-      <div>✔ 100% bağımsız incelemeler</div>
-      <div>✔ Mikrobiyom & temel sağlık odaklı</div>
-      <div>✔ Türkiye & Avrupa markaları</div>
-    </div>
-  </div>
-""",
-            unsafe_allow_html=True,
-        )
-
-    with col_right:
-        st.markdown(
-            """
-  <div class="nv-hero-card">
-    <div class="nv-hero-card-title">Quick health snapshot</div>
-    <div class="nv-hero-card-sub">
-      Answer 3 questions, see which foundations you might be missing.
-    </div>
-
-    <div class="nv-metric-row">
-      <div class="nv-metric">
-        <div class="nv-metric-label">Gut & digestion</div>
-        <div class="nv-metric-value">72/100</div>
-        <div class="nv-metric-detail">Şişkinlik, enerji dalgalanması</div>
-      </div>
-      <div class="nv-metric">
-        <div class="nv-metric-label">Stress & sleep</div>
-        <div class="nv-metric-value">64/100</div>
-        <div class="nv-metric-detail">Geç yatma, sabah yorgunluğu</div>
-      </div>
-      <div class="nv-metric">
-        <div class="nv-metric-label">Movement</div>
-        <div class="nv-metric-value">3x</div>
-        <div class="nv-metric-detail">Haftalık hafif aktivite</div>
-      </div>
-    </div>
-
-    <div style="font-size:12px; color:#4b5563;">
-      This is a demo layout. In the full product, this card can be powered by
-      a short questionnaire and your health stack engine.
-    </div>
-  </div>
+<div style="font-size:12px; opacity:0.7; margin-bottom:8px; border-bottom:1px dashed rgba(128,128,128,0.3); padding-bottom:8px;">
+{item['unit_price']:,.0f}₺ <span style="opacity:0.5;">(birim)</span> &times; {item['qty']} = <strong>{item['subtotal']:,.0f}₺</strong>
 </div>
-""",
-            unsafe_allow_html=True,
-        )
-
-# ------------------------------------------------------------------
-# 5) HOW IT WORKS SECTION
-# ------------------------------------------------------------------
-with st.container():
-    st.markdown(
-        """
-<div class="nv-section">
-  <div class="nv-section-header">
-    <div>
-      <div class="nv-section-kicker">HOW IT WORKS</div>
-      <div class="nv-section-title">From information overload to calm decisions</div>
-    </div>
-    <div style="font-size:12px; color:var(--nv-muted); max-width:320px;">
-      We don’t sell magic bullets. We help you see your foundations clearly:
-      gut, sleep, stress, movement, bloodwork – then match you only with
-      products and protocols that make sense.
-    </div>
-  </div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:11px;">
+<div style="background:rgba(252, 211, 77, 0.1); padding:4px; border-radius:4px; text-align:center;">
+<div style="color:#FCD34D; opacity:0.8;">Komisyon</div>
+<div style="color:#FCD34D; font-weight:bold;">{item['comm_amt']:,.0f}₺</div>
 </div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    step_cols = st.columns(3)
-    steps = [
-        (
-            "1. Map your reality",
-            "Answer a few evidence-backed questions about digestion, energy, sleep, stress and lifestyle. No diagnoses, just patterns.",
-        ),
-        (
-            "2. See your foundations",
-            "We highlight which systems are under-supported (örneğin mikrobiyom, mineral dengesi, nabız, nefes).",
-        ),
-        (
-            "3. Curated stacks",
-            "You see transparent supplement & ritual suggestions: what, why, how long – and which Turkish brands actually deliver.",
-        ),
-    ]
-    for col, (title, desc) in zip(step_cols, steps):
-        with col:
-            st.markdown(
-                f"""
-<div class="nv-card" style="border-radius:18px;">
-  <div class="nv-card-tag">
-    <span style="width:7px; height:7px; border-radius:999px; background:#111827;"></span>
-    Step
-  </div>
-  <div class="nv-card-title">{title}</div>
-  <div class="nv-card-body">{desc}</div>
+<div style="background:rgba(78, 205, 196, 0.1); padding:4px; border-radius:4px; text-align:center;">
+<div style="color:#4ECDC4; opacity:0.8;">Marka Ödemesi</div>
+<div style="color:#4ECDC4; font-weight:bold;">{item['payout']:,.0f}₺</div>
 </div>
-""",
-                unsafe_allow_html=True,
-            )
-
-# ------------------------------------------------------------------
-# 6) HEALTH STACKS SECTION
-# ------------------------------------------------------------------
-with st.container():
-    st.markdown('<div id="stacks" class="anchor"></div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-<div class="nv-section">
-  <div class="nv-section-header">
-    <div>
-      <div class="nv-section-kicker">HEALTH STACKS</div>
-      <div class="nv-section-title">Evidence-aware stacks for real lives</div>
-    </div>
-    <div class="nv-badge-soft">Demo: sample stacks – connect to your real DB later</div>
-  </div>
 </div>
-""",
-        unsafe_allow_html=True,
-    )
+</div>
+"""
+                st.markdown(item_html, unsafe_allow_html=True)
+            
+            total = sum(i['subtotal'] for i in st.session_state.cart)
+            total_comm = sum(i['comm_amt'] for i in st.session_state.cart)
+            total_pay = sum(i['payout'] for i in st.session_state.cart)
+            
+            summary_html = f"""
+<div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 15px 0;">
+<div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:4px;">
+<span>Ürün Toplam:</span>
+<span style="font-weight:bold;">{total:,.0f}₺</span>
+</div>
+<div style="display:flex; justify-content:space-between; font-size:14px; color:#FCD34D; margin-bottom:8px;">
+<span>Top. Komisyon:</span>
+<span style="font-weight:bold;">{total_comm:,.0f}₺</span>
+</div>
+<div style="margin: 5px 0; border-top: 1px dashed rgba(128,128,128,0.3);"></div>
+<div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; color:#4ECDC4; margin-top:8px;">
+<span>MARKAYA NET:</span>
+<span>{total_pay:,.0f}₺</span>
+</div>
+</div>
+"""
+            st.markdown(summary_html, unsafe_allow_html=True)
+            
+            if st.button("⚡ SİPARİŞİ OLUŞTUR", type="primary"):
+                if cust_name and cust_phone:
+                    order_id = f"NV-{datetime.now().strftime('%m%d%H%M')}"
+                    items_str = ", ".join([f"{i['product']} (x{i['qty']})" for i in st.session_state.cart])
+                    
+                    order_data = {
+                        'Order_ID': order_id,
+                        'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Brand': st.session_state.brand_lock,
+                        'Customer': cust_name,
+                        'Phone': cust_phone,
+                        'Address': cust_addr,
+                        'Items': items_str,
+                        'Total_Value': total,
+                        'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
+                        'Commission_Amt': total_comm,
+                        'Brand_Payout': total_pay,
+                        'Status': 'Pending',
+                        'WhatsApp_Sent': 'NO',
+                        'Tracking_Num': '',
+                        'Priority': 'Standard',
+                        'Notes': '',
+                        'Created_By': 'admin',
+                        'Last_Modified': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    if save_order(order_data):
+                        st.success(f"✅ Sipariş {order_id} oluşturuldu!")
+                        st.session_state.cart = []
+                        st.session_state.brand_lock = None
+                        st.rerun()
+                else:
+                    st.error("Müşteri bilgilerini giriniz!")
+            
+            if st.button("🗑️ Sepeti Temizle"):
+                st.session_state.cart = []
+                st.session_state.brand_lock = None
+                st.rerun()
+        else:
+            st.info("Sepet boş")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    stacks = [
-        {
-            "tag": "Foundations",
-            "title": "Gut & microbiome reset",
-            "body": "For people with şişkinlik, kabızlık / ishal döngüsü, yorgunluk. Focus on fiber, polyphenols, humic/fulvic and gentle probiotics.",
-            "score": "Science weight: high",
-            "time": "3–6 months",
+# ============================================================================
+# 9. OPERASYON MODÜLÜ
+# ============================================================================
+
+def render_operations():
+    radiant_line()
+    st.markdown("### ✅ Operasyon Yönetimi")
+    df = load_orders()
+    
+    new_orders = df[df['WhatsApp_Sent'] == 'NO']
+    if not new_orders.empty:
+        st.warning(f"⚠️ {len(new_orders)} sipariş markaya bildirilmedi!")
+        for idx, row in new_orders.iterrows():
+            with st.expander(f"🔴 {row['Order_ID']} - {row['Brand']} ({row['Customer']})", expanded=True):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    phone = BRANDS[row['Brand']]['phone']
+                    msg = urllib.parse.quote(f"YENİ SİPARİŞ: {row['Order_ID']}\n{row['Items']}\nTeslimat: {row['Address']}")
+                    st.markdown(f"[📲 WhatsApp Mesajı Gönder](https://wa.me/{phone}?text={msg})")
+                with col2:
+                    if st.button("✅ Bildirildi", key=f"ntf_{idx}"):
+                        df.at[idx, 'WhatsApp_Sent'] = 'YES'
+                        df.at[idx, 'Status'] = 'Notified'
+                        update_orders(df)
+                        st.rerun()
+    
+    pending_track = df[(df['Status'] == 'Notified') & (df['Tracking_Num'].isna() | (df['Tracking_Num'] == ''))]
+    if not pending_track.empty:
+        st.info("📦 Takip numarası bekleyen siparişler")
+        for idx, row in pending_track.iterrows():
+            with st.expander(f"⏳ {row['Order_ID']} - {row['Brand']}"):
+                track = st.text_input("Takip No Giriniz", key=f"track_{idx}")
+                if st.button("Kargola", key=f"ship_{idx}"):
+                    df.at[idx, 'Tracking_Num'] = track
+                    df.at[idx, 'Status'] = 'Dispatched'
+                    update_orders(df)
+                    st.success("Kargolandı!")
+                    st.rerun()
+
+    dispatched = df[df['Status'] == 'Dispatched']
+    if not dispatched.empty:
+        st.markdown("---")
+        st.markdown("#### ✅ Tamamlanmayı Bekleyenler")
+        for idx, row in dispatched.iterrows():
+            col1, col2, col3 = st.columns([2, 2, 1])
+            col1.write(f"**{row['Order_ID']}**")
+            col2.write(f"Takip: {row['Tracking_Num']}")
+            if col3.button("Tamamla", key=f"comp_{idx}"):
+                df.at[idx, 'Status'] = 'Completed'
+                update_orders(df)
+                st.rerun()
+
+# ============================================================================
+# 10. FATURA & ÖDEME PANELİ
+# ============================================================================
+
+def render_brand_payout_hq():
+    radiant_line()
+    st.markdown("## 📑 FATURA & ÖDEME PANELİ (BRAND PAYOUT HQ)")
+    
+    df_orders = load_orders()
+    df_payments = load_payments()
+    
+    for brand in BRANDS.keys():
+        with st.expander(f"🏦 {brand} FİNANS YÖNETİMİ", expanded=True):
+            brand_meta = BRANDS[brand]
+            brand_orders = df_orders[df_orders['Brand'] == brand]
+            
+            completed_df = brand_orders[brand_orders['Status'] == 'Completed']
+            payout_completed = completed_df['Brand_Payout'].sum() if not completed_df.empty else 0
+            count_completed = len(completed_df)
+            
+            pending_df = brand_orders[brand_orders['Status'].isin(['Pending', 'Notified', 'Dispatched'])]
+            payout_pending = pending_df['Brand_Payout'].sum() if not pending_df.empty else 0
+            
+            brand_paid_df = df_payments[df_payments['Brand'] == brand]
+            total_paid = brand_paid_df['Amount'].sum() if not brand_paid_df.empty else 0
+            
+            net_transfer_due = payout_completed - total_paid
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                <div class="glass-card" style="border-left: 4px solid #4ECDC4;">
+                    <div style="font-size:12px; opacity:0.7;">KESİLMESİ GEREKEN FATURA TUTARI</div>
+                    <div style="font-size:24px; font-weight:bold;">{payout_completed:,.2f}₺</div>
+                    <div style="font-size:11px; opacity:0.6;">(Tamamlanan {count_completed} Sipariş)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="glass-card" style="border-left: 4px solid #F59E0B;">
+                    <div style="font-size:12px; opacity:0.7;">HENÜZ TAMAMLANMAMIŞ SİPARİŞLER</div>
+                    <div style="font-size:24px; font-weight:bold;">{payout_pending:,.2f}₺</div>
+                    <div style="font-size:11px; opacity:0.6;">(Bekleyen/Kargoda)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            comm_rate = int(brand_meta['commission'] * 100)
+            fatura_desc = f"NATUVISIO satış komisyon hizmeti – {brand} – Toplam sipariş adedi: {count_completed} – Komisyon oranı: %{comm_rate} – Net marka ödemesi: {payout_completed:,.2f}₺"
+            
+            st.markdown("#### 🧾 Fatura Açıklaması (Otomatik)")
+            st.code(fatura_desc, language="text")
+            
+            st.markdown("#### 💸 Banka Transfer Talimatı")
+            col_bank1, col_bank2 = st.columns([2, 1])
+            with col_bank1:
+                st.info(f"**Alıcı:** {brand_meta['account_name']}  \n**IBAN:** {brand_meta['iban']}  \n**Tutar:** {net_transfer_due:,.2f}₺")
+            with col_bank2:
+                transfer_desc = f"NATUVISIO {brand} satış ödemesi – {datetime.now().strftime('%d.%m.%Y')} – Toplam: {net_transfer_due:,.0f}TL"
+                st.code(transfer_desc, language="text")
+            
+            if net_transfer_due > 0:
+                if st.button(f"💸 {brand} - ÖDEMEYİ YAPTIM ({net_transfer_due:,.0f}₺)", key=f"pay_{brand}"):
+                    payment_data = {
+                        "Payment_ID": f"PAY-{datetime.now().strftime('%m%d%H%M%S')}",
+                        "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "Brand": brand,
+                        "Amount": net_transfer_due,
+                        "Method": "Bank Transfer",
+                        "Reference": "Admin Manual",
+                        "Status": "Confirmed",
+                        "Proof_File": "",
+                        "Notes": "Payout HQ üzerinden ödendi",
+                        "Fatura_Sent": "No",
+                        "Fatura_Date": "",
+                        "Fatura_Explanation": ""
+                    }
+                    if save_payment(payment_data):
+                        st.balloons()
+                        st.success("Ödeme sisteme işlendi!")
+                        time.sleep(1)
+                        st.rerun()
+            else:
+                st.success("✅ Tüm ödemeler yapıldı.")
+
+    radiant_line()
+    st.markdown("### 📋 Fatura Durum Tablosu (Cross-Check)")
+    df_payments = load_payments()
+    if not df_payments.empty:
+        st.dataframe(df_payments[['Time', 'Brand', 'Amount', 'Fatura_Sent', 'Fatura_Date']], use_container_width=True)
+        with st.form("update_fatura_status"):
+            st.write("Fatura Durumu Güncelle")
+            pay_ids = df_payments['Payment_ID'].tolist()
+            selected_pay = st.selectbox("İşlem Seçiniz (Payment ID)", pay_ids)
+            col_f1, col_f2 = st.columns(2)
+            with col_f1: new_status = st.checkbox("Fatura Kesildi mi? (YES)", value=False)
+            with col_f2: new_date = st.date_input("Fatura Tarihi")
+            if st.form_submit_button("Durumu Güncelle"):
+                idx = df_payments.index[df_payments['Payment_ID'] == selected_pay][0]
+                df_payments.at[idx, 'Fatura_Sent'] = "YES" if new_status else "NO"
+                df_payments.at[idx, 'Fatura_Date'] = str(new_date)
+                update_payments(df_payments)
+                st.success("Güncellendi!")
+                st.rerun()
+    else:
+        st.info("Henüz ödeme kaydı yok.")
+
+# ============================================================================
+# 11. DİĞER FONKSİYONLAR
+# ============================================================================
+
+def render_all_orders():
+    radiant_line()
+    st.markdown("### 📦 Tüm Sipariş Geçmişi")
+    df = load_orders()
+    if not df.empty:
+        st.dataframe(df.sort_values('Time', ascending=False), use_container_width=True)
+    else:
+        st.info("Kayıt yok")
+
+def render_analytics():
+    radiant_line()
+    st.markdown("### 📊 Analitik Raporlar")
+    df = load_orders()
+    if not df.empty:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Marka Bazlı Satış**")
+            st.bar_chart(df.groupby('Brand')['Total_Value'].sum())
+        with col2:
+            st.markdown("**Durum Dağılımı**")
+            st.bar_chart(df['Status'].value_counts())
+
+def render_faqs():
+    radiant_line()
+    st.markdown("## ❔ SSS & Operasyon Akış Rehberi")
+    with st.expander("1. Genel bakış: Bu panel ne yapıyor?", expanded=True):
+        st.markdown("""Bu panel, NATUVISIO'nun tüm marka partnerleri için tek merkezden sevkiyat, finans ve mutabakat yönetimini sağlar.""")
+    with st.expander("2. Sipariş akışı: İlk adımdan marka ödemesine kadar", expanded=False):
+        st.markdown("""1. YENİ SEVKİYAT > Sipariş Gir\n2. OPERASYON > WhatsApp Gönder\n3. Kargo Takip > Gir & Tamamla\n4. FATURA & ÖDEME > Marka Hakedişini Öde""")
+
+def render_logs_advanced():
+    radiant_line()
+    st.markdown(f"## 📜 LOG KAYITLARI <span style='font-size:12px; opacity:0.6; vertical-align:middle;'>GELİŞMİŞ MODÜL</span>", unsafe_allow_html=True)
+    
+    df_logs = load_logs()
+    
+    if df_logs.empty:
+        st.info("Henüz sistem kaydı bulunmuyor.")
+        return
+
+    # SEARCH
+    search_query = st.text_input("🔍 Log Ara (ID, İşlem, Kullanıcı, Detay...)", key="log_search")
+    
+    # FILTERS
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        unique_actions = df_logs['Action'].unique().tolist()
+        filter_action = st.multiselect("İşlem Tipi Filtrele", unique_actions)
+    with col_f2:
+        unique_users = df_logs['User'].unique().tolist()
+        filter_user = st.multiselect("Kullanıcı Filtrele", unique_users)
+
+    filtered_df = df_logs.copy()
+    if search_query:
+        filtered_df = filtered_df[
+            filtered_df.apply(lambda row: search_query.lower() in row.astype(str).str.lower().values.tostring().lower(), axis=1)
+        ]
+    if filter_action:
+        filtered_df = filtered_df[filtered_df['Action'].isin(filter_action)]
+    if filter_user:
+        filtered_df = filtered_df[filtered_df['User'].isin(filter_user)]
+
+    st.markdown(f"**{len(filtered_df)}** kayıt bulundu.")
+    st.dataframe(
+        filtered_df.sort_values('Time', ascending=False),
+        use_container_width=True,
+        column_config={
+            "Log_ID": "Log ID",
+            "Time": "Tarih/Saat",
+            "Action": "İşlem Türü",
+            "User": "Kullanıcı",
+            "Details": "Detaylar"
         },
-        {
-            "tag": "Performance",
-            "title": "Workday focus & calm",
-            "body": "For founders, uzmanlar, yoğun çalışanlar. L-theanine, magnesium glycinate, non-stim nitric oxide, breathwork anchors.",
-            "score": "Science weight: medium-high",
-            "time": "8–12 weeks",
-        },
-        {
-            "tag": "Recovery",
-            "title": "Sleep architecture support",
-            "body": "For those who fall asleep late, wake up unrefreshed. Light hygiene, timing of meals, magnesium, glycine, circadian timing.",
-            "score": "Science weight: medium",
-            "time": "4–8 weeks",
-        },
-    ]
-
-    st.markdown('<div class="nv-card-grid">', unsafe_allow_html=True)
-    for stack in stacks:
-        st.markdown(
-            f"""
-<div class="nv-card">
-  <div class="nv-card-tag">{stack['tag']}</div>
-  <div class="nv-card-title">{stack['title']}</div>
-  <div class="nv-card-body">{stack['body']}</div>
-  <div class="nv-card-meta">
-    <span>{stack['score']}</span>
-    <span>{stack['time']}</span>
-  </div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ------------------------------------------------------------------
-# 7) REVIEWS SECTION
-# ------------------------------------------------------------------
-with st.container():
-    st.markdown('<div id="reviews" class="anchor"></div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-<div class="nv-section">
-  <div class="nv-section-header">
-    <div>
-      <div class="nv-section-kicker">LATEST REVIEWS</div>
-      <div class="nv-section-title">Real experiences, no sponsored copy</div>
-    </div>
-    <div style="font-size:12px; color:var(--nv-muted); max-width:320px;">
-      In the full product this block would pull from your review DB (app, web,
-      Telegram, Instagram) and standardize formats.
-    </div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
+        height=500
+    )
+    
+    csv = export_to_csv(filtered_df)
+    st.download_button(
+        label="📥 Logları İndir (CSV)",
+        data=csv,
+        file_name=f"system_logs_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime='text/csv',
     )
 
-    review_cols = st.columns(3)
-    reviews = [
-        (
-            "Elif, 34",
-            "İstanbul · Kurumsal yönetici",
-            "3 aydır mikrobiyom odaklı destek alıyorum. En büyük fark, sabah şişkinliğinin kaybolması ve odaklanma kapasitemdeki artış.",
-        ),
-        (
-            "Mert, 29",
-            "Ankara · Yazılım geliştirici",
-            "Kafeinsiz performans desteği için önerilen stack’i denedim. Özellikle akşam anksiyetesinin azalması benim için kritik oldu.",
-        ),
-        (
-            "Dr. Ayşe",
-            "Aile hekimi",
-            "Danışanlarım için şeffaf etiketli ve gerçek analiz sonuçları olan takviyeleri bulmak başlı başına bir iş. Buradaki filtreleme çok değerli.",
-        ),
-    ]
-    for col, (name, detail, text) in zip(review_cols, reviews):
-        with col:
-            st.markdown(
-                f"""
-<div class="nv-review">
-  <div class="nv-review-header">
-    <div class="nv-avatar"></div>
-    <div>
-      <div class="nv-review-name">{name}</div>
-      <div class="nv-review-detail">{detail}</div>
-    </div>
-  </div>
-  <div style="font-size:12px; line-height:1.5; margin-top:2px;">
-    {text}
-  </div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
+# ============================================================================
+# 13. ANA ÇALIŞTIRMA (MAIN)
+# ============================================================================
 
-# ------------------------------------------------------------------
-# 8) MAGAZINE SECTION
-# ------------------------------------------------------------------
-with st.container():
-    st.markdown('<div id="magazine" class="anchor"></div>', unsafe_allow_html=True)
-    st.markdown(
-        """
-<div class="nv-section">
-  <div class="nv-section-header">
-    <div>
-      <div class="nv-section-kicker">MAGAZINE</div>
-      <div class="nv-section-title">Slow, science-aware health education</div>
-    </div>
-    <div class="nv-badge-soft">Soon: connect this to your NATUVISIO content hub</div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-
-    article_cols = st.columns(3)
-    articles = [
-        (
-            "Modern yaşamda bağırsak sessizliği",
-            "Neden her 5 kişiden 1’i sindirim sorunu yaşıyor ve bu, karar verme hızımızı nasıl etkiliyor?",
-            "9 min read",
-        ),
-        (
-            "Nitric oxide & oxygen: stimülan olmadan performans",
-            "Kafein bağımlısı olmadan, damar sağlığını ve dayanıklılığı artırmanın bilimsel yolları.",
-            "7 min read",
-        ),
-        (
-            "Şüpheci tüketici için takviye okuryazarlığı",
-            "Etiket, içerik, analiz raporu, fiyat – hangisi gerçekten önemli, hangisi pazarlama oyunu?",
-            "11 min read",
-        ),
-    ]
-    for col, (title, desc, meta) in zip(article_cols, articles):
-        with col:
-            st.markdown(
-                f"""
-<div class="nv-card" style="border-radius:18px;">
-  <div class="nv-card-title">{title}</div>
-  <div class="nv-card-body">{desc}</div>
-  <div class="nv-card-meta">
-    <span>{meta}</span>
-    <span style="text-decoration:underline; text-underline-offset:3px;">Read draft</span>
-  </div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-
-# ------------------------------------------------------------------
-# 9) FOOTER – LEGAL + CONTACT + TIMEZONE
-# ------------------------------------------------------------------
-istanbul_time = (
-    datetime.now(pytz.timezone("Europe/Istanbul")).strftime("%d.%m.%Y · %H:%M")
-)
-
-with st.container():
-    st.markdown('<div id="footer" class="anchor"></div>', unsafe_allow_html=True)
-    st.markdown(
-        f"""
-<div class="nv-footer">
-  <div class="nv-footer-row">
-    <div style="max-width:420px;">
-      <strong>NATUVISIO Health Hub</strong><br/>
-      Helping people in Turkey make trusted, evidence-aware health decisions,
-      starting from the foundations: gut, sleep, stress, movement.
-      <br/><br/>
-      <span style="opacity:0.75;">
-        Products and content are not intended to diagnose, treat, cure or prevent any disease.
-        All information is educational and should be cross-checked with your own healthcare professional.
-      </span>
-    </div>
-
-    <div style="font-size:11px;">
-      <div><strong>Contact</strong></div>
-      <div>hello@natuvisio.com</div>
-      <div>natuvisio.com</div>
-      <div style="margin-top:6px;">Local time (Istanbul): {istanbul_time}</div>
-    </div>
-
-    <div style="font-size:11px; text-align:right; opacity:0.8;">
-      © {datetime.now().year} NATUVISIO.<br/>
-      All rights reserved. Experimental prototype UI built with Streamlit.
-    </div>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+if __name__ == "__main__":
+    if st.session_state.admin_logged_in:
+        dashboard()
+    elif st.session_state.is_partner_logged_in:
+        partner_dashboard()
+    else:
+        login_screen()
