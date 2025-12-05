@@ -8,8 +8,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - TÜRKÇE VERSİYON (v4.0)
-# Finansal Motor + Fatura Takibi + Marka Ödemeleri
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.0 (THEME ENGINE + PAYOUT HQ)
 # ============================================================================
 
 st.set_page_config(
@@ -25,8 +24,8 @@ st.set_page_config(
 
 ADMIN_PASS = "admin2025"
 CSV_ORDERS = "orders_complete.csv"
-CSV_PAYMENTS = "brand_payments.csv" # Ödemeler (Bizim markaya gönderdiğimiz)
-CSV_INVOICES = "brand_invoices.csv" # Faturalar (Bizim markaya kestiğimiz)
+CSV_PAYMENTS = "brand_payments.csv" 
+CSV_INVOICES = "brand_invoices.csv" 
 CSV_LOGS = "system_logs.csv"
 PHI = 1.618
 
@@ -87,10 +86,30 @@ def get_icon(name, color="#ffffff", size=24):
     return icons.get(name, "")
 
 # ============================================================================
-# 3. CSS TASARIM SİSTEMİ
+# 3. CSS & THEME ENGINE (NEW v5.0)
 # ============================================================================
 
 def load_css(theme="dark"):
+    # Theme Variables
+    if theme == "light":
+        bg_image = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop" # Bright Mountain
+        glass_bg = "rgba(255, 255, 255, 0.65)"
+        glass_border = "rgba(0, 0, 0, 0.05)"
+        text_color = "#0f172a"
+        subtext_color = "#475569"
+        input_bg = "rgba(255, 255, 255, 0.8)"
+        shadow = "0 8px 32px rgba(0, 0, 0, 0.05)"
+        btn_gradient = "linear-gradient(135deg, #5b7354, #4a6b45)" # Sage Green
+    else:
+        bg_image = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
+        glass_bg = "rgba(255, 255, 255, 0.04)"
+        glass_border = "rgba(255, 255, 255, 0.08)"
+        text_color = "#ffffff"
+        subtext_color = "rgba(255, 255, 255, 0.6)"
+        input_bg = "rgba(0, 0, 0, 0.3)"
+        shadow = "0 8px 32px rgba(0, 0, 0, 0.3)"
+        btn_gradient = "linear-gradient(135deg, #4ECDC4, #44A08D)"
+
     st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -98,54 +117,63 @@ def load_css(theme="dark"):
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         .stApp {{
-            background-image: linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.96)), 
-                              url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
+            background-image: linear-gradient(rgba(15, 23, 42, {0.1 if theme=='light' else 0.88}), rgba(15, 23, 42, {0.1 if theme=='light' else 0.96})), 
+                              url("{bg_image}");
             background-size: cover;
             background-attachment: fixed;
             font-family: 'Inter', sans-serif;
-            color: #ffffff;
+            color: {text_color};
         }}
         
+        /* RADIANT SEPARATOR */
+        .radiant-line {{
+            background: linear-gradient(90deg, rgba(78,205,196,0), rgba(78,205,196,0.5), rgba(78,205,196,0));
+            height: 1px;
+            margin: 30px 0;
+            width: 100%;
+            opacity: 0.6;
+        }}
+
         .glass-card {{
-            background: rgba(255, 255, 255, 0.04);
+            background: {glass_bg};
             backdrop-filter: blur({FIBO['md']}px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid {glass_border};
             border-radius: {FIBO['sm']}px;
             padding: {FIBO['md']}px;
             margin-bottom: {FIBO['sm']}px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            box-shadow: {shadow};
             transition: all 0.3s ease;
         }}
         
         .glass-card:hover {{
             transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(78, 205, 196, 0.3);
         }}
         
         .metric-value {{
             font-family: 'Space Grotesk', sans-serif;
             font-size: 24px;
             font-weight: 700;
-            color: #ffffff;
+            color: {text_color};
         }}
         
         .metric-label {{
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: rgba(255,255,255,0.5);
+            color: {subtext_color};
             font-weight: 600;
         }}
         
-        h1, h2, h3, h4 {{
+        h1, h2, h3, h4, h5, h6 {{
             font-family: 'Space Grotesk', sans-serif !important;
-            color: #ffffff !important;
+            color: {text_color} !important;
             font-weight: 700 !important;
         }}
         
         /* Butonlar */
         div.stButton > button {{
-            background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+            background: {btn_gradient} !important;
             color: white !important;
             border: none !important;
             padding: {FIBO['sm']}px {FIBO['md']}px !important;
@@ -165,23 +193,29 @@ def load_css(theme="dark"):
         .stTextArea > div > div > textarea,
         .stSelectbox > div > div > select,
         .stNumberInput > div > div > input {{
-            background: rgba(0,0,0,0.3) !important;
-            border: 1px solid rgba(255,255,255,0.1) !important;
-            color: #ffffff !important;
+            background: {input_bg} !important;
+            border: 1px solid {glass_border} !important;
+            color: {text_color} !important;
             border-radius: 8px !important;
         }}
+        
+        /* Checkbox fix for light mode */
+        .stCheckbox label {{ color: {text_color} !important; }}
         
         #MainMenu, header, footer {{ visibility: hidden; }}
         
         /* Scrollbar */
         ::-webkit-scrollbar {{ width: 6px; }}
-        ::-webkit-scrollbar-track {{ background: rgba(255,255,255,0.05); }}
+        ::-webkit-scrollbar-track {{ background: rgba(0,0,0,0.05); }}
         ::-webkit-scrollbar-thumb {{ background: rgba(78,205,196,0.3); border-radius: 3px; }}
     </style>
     """, unsafe_allow_html=True)
 
+def radiant_line():
+    st.markdown('<div class="radiant-line"></div>', unsafe_allow_html=True)
+
 # ============================================================================
-# 4. VERİTABANI YÖNETİMİ
+# 4. VERİTABANI YÖNETİMİ (DATABASE)
 # ============================================================================
 
 def init_databases():
@@ -194,20 +228,22 @@ def init_databases():
             "Priority", "Notes", "Created_By", "Last_Modified"
         ]).to_csv(CSV_ORDERS, index=False)
     
-    # Ödemeler (Giden Para)
+    # Ödemeler (Giden Para + Fatura Durumu) - v5.0 Güncelleme
     if not os.path.exists(CSV_PAYMENTS):
         pd.DataFrame(columns=[
             "Payment_ID", "Time", "Brand", "Amount", "Method", "Reference", 
-            "Status", "Proof_File", "Notes"
+            "Status", "Proof_File", "Notes", 
+            "Fatura_Sent", "Fatura_Date", "Fatura_Explanation" # Yeni Kolonlar
         ]).to_csv(CSV_PAYMENTS, index=False)
+    else:
+        # Auto-migration for existing files
+        df = pd.read_csv(CSV_PAYMENTS)
+        if "Fatura_Sent" not in df.columns:
+            df["Fatura_Sent"] = "No"
+            df["Fatura_Date"] = ""
+            df["Fatura_Explanation"] = ""
+            df.to_csv(CSV_PAYMENTS, index=False)
         
-    # Faturalar (Kesilen Fatura)
-    if not os.path.exists(CSV_INVOICES):
-        pd.DataFrame(columns=[
-            "Invoice_ID", "Time", "Brand", "Amount", "Date_Range", 
-            "Invoice_Number", "Status", "Notes"
-        ]).to_csv(CSV_INVOICES, index=False)
-    
     # Log Kayıtları
     if not os.path.exists(CSV_LOGS):
         pd.DataFrame(columns=[
@@ -221,10 +257,6 @@ def load_orders():
 
 def load_payments():
     try: return pd.read_csv(CSV_PAYMENTS)
-    except: return pd.DataFrame()
-
-def load_invoices():
-    try: return pd.read_csv(CSV_INVOICES)
     except: return pd.DataFrame()
 
 # --- Kayıt Fonksiyonları ---
@@ -254,12 +286,9 @@ def save_payment(payment_data):
         return True
     except: return False
 
-def save_invoice(invoice_data):
+def update_payments(df):
     try:
-        df = load_invoices()
-        df = pd.concat([df, pd.DataFrame([invoice_data])], ignore_index=True)
-        df.to_csv(CSV_INVOICES, index=False)
-        log_action("FATURA_KESİLDİ", "admin", "", f"{invoice_data['Brand']} faturası oluşturuldu")
+        df.to_csv(CSV_PAYMENTS, index=False)
         return True
     except: return False
 
@@ -291,13 +320,15 @@ if 'cart' not in st.session_state:
     st.session_state.cart = []
 if 'brand_lock' not in st.session_state:
     st.session_state.brand_lock = None
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'dark'
 
 # ============================================================================
 # 6. GİRİŞ EKRANI
 # ============================================================================
 
 def login_screen():
-    load_css()
+    load_css(st.session_state.theme)
     st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -306,7 +337,7 @@ def login_screen():
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
             <h2>NATUVISIO ADMIN</h2>
-            <p style="opacity: 0.6; font-size: 12px;">TÜRKÇE OPERASYON SİSTEMİ</p>
+            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.0</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -325,11 +356,11 @@ def login_screen():
 # ============================================================================
 
 def dashboard():
-    load_css()
+    load_css(st.session_state.theme)
     init_databases()
     
-    # --- BAŞLIK ---
-    col_h1, col_h2 = st.columns([6, 1])
+    # --- BAŞLIK & THEME TOGGLE ---
+    col_h1, col_h2, col_h3 = st.columns([6, 1, 1])
     with col_h1:
         st.markdown(f"""
         <div style="display: flex; align-items: center; gap: {FIBO['sm']}px;">
@@ -342,6 +373,12 @@ def dashboard():
         """, unsafe_allow_html=True)
     
     with col_h2:
+        # THEME TOGGLE
+        if st.button("☀️/🌙", key="theme_toggle"):
+            st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+            st.rerun()
+
+    with col_h3:
         if st.button("🚪 Çıkış"):
             st.session_state.admin_logged_in = False
             st.session_state.cart = []
@@ -382,23 +419,26 @@ def dashboard():
             <div class="metric-value">{len(df)}</div>
         </div>""", unsafe_allow_html=True)
 
-    # --- SEKMELER ---
+    # --- RADIANT LINE ---
+    radiant_line()
+
+    # --- SEKMELER (UPDATED v5.0) ---
     tabs = st.tabs([
         "🚀 YENİ SEVKİYAT", 
         "✅ OPERASYON", 
-        "📑 MUTABAKAT & FİNANS", 
+        "🏦 FATURA & ÖDEME PANELİ", # NEW v5.0 
         "📦 TÜM SİPARİŞLER",
         "📊 ANALİTİK"
     ])
     
     with tabs[0]: render_new_dispatch()
     with tabs[1]: render_operations()
-    with tabs[2]: render_financial_obligations() # YENİ MODÜL
+    with tabs[2]: render_brand_payout_hq() # NEW v5.0 FUNCTION
     with tabs[3]: render_all_orders()
     with tabs[4]: render_analytics()
 
 # ============================================================================
-# 8. YENİ SEVKİYAT MODÜLÜ (NEW DISPATCH)
+# 8. YENİ SEVKİYAT MODÜLÜ (NEW DISPATCH) - ENHANCED v5.0
 # ============================================================================
 
 def render_new_dispatch():
@@ -432,6 +472,7 @@ def render_new_dispatch():
         prod_details = brand_data["products"][prod]
         line_total = prod_details['price'] * qty
         comm_amt = line_total * brand_data['commission']
+        payout = line_total - comm_amt
         
         if st.button("➕ Sepete Ekle"):
             st.session_state.cart.append({
@@ -439,8 +480,10 @@ def render_new_dispatch():
                 "product": prod,
                 "sku": prod_details['sku'],
                 "qty": qty,
+                "price": prod_details['price'],
                 "subtotal": line_total,
-                "comm_amt": comm_amt
+                "comm_amt": comm_amt,
+                "payout": payout
             })
             st.session_state.brand_lock = active_brand
             st.rerun()
@@ -452,16 +495,41 @@ def render_new_dispatch():
         
         if st.session_state.cart:
             for item in st.session_state.cart:
-                st.markdown(f"**{item['product']}** x{item['qty']} = {item['subtotal']:,.0f}₺")
+                # v5.0 Inline Breakdown
+                st.markdown(f"""
+                <div style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                    <div style="font-weight:bold;">{item['product']} <span style="opacity:0.6;">x{item['qty']}</span></div>
+                    <div style="font-size:12px; display:flex; justify-content:space-between;">
+                        <span>Ürün Fiyatı:</span> <span>{item['subtotal']:,.0f}₺</span>
+                    </div>
+                    <div style="font-size:12px; display:flex; justify-content:space-between; color:#FCD34D;">
+                        <span>Komisyon:</span> <span>{item['comm_amt']:,.0f}₺</span>
+                    </div>
+                    <div style="font-size:12px; display:flex; justify-content:space-between; color:#4ECDC4; font-weight:bold;">
+                        <span>Marka Ödemesi:</span> <span>{item['payout']:,.0f}₺</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
+            # v5.0 Total Breakdown
             total = sum(i['subtotal'] for i in st.session_state.cart)
             total_comm = sum(i['comm_amt'] for i in st.session_state.cart)
+            total_pay = sum(i['payout'] for i in st.session_state.cart)
             
             st.markdown(f"""
-            <div style="background: rgba(78,205,196,0.2); padding: 10px; border-radius: 8px; margin: 10px 0;">
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px;">
-                    <span>TOPLAM:</span>
+            <div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                <div style="display:flex; justify-content:space-between; font-size:14px;">
+                    <span>Ürün Toplam:</span>
                     <span>{total:,.0f}₺</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:14px; color:#FCD34D;">
+                    <span>Top. Komisyon:</span>
+                    <span>{total_comm:,.0f}₺</span>
+                </div>
+                <div style="margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.2);"></div>
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:16px; color:#4ECDC4;">
+                    <span>MARKAYA NET:</span>
+                    <span>{total_pay:,.0f}₺</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -482,7 +550,7 @@ def render_new_dispatch():
                         'Total_Value': total,
                         'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
                         'Commission_Amt': total_comm,
-                        'Brand_Payout': total - total_comm,
+                        'Brand_Payout': total_pay,
                         'Status': 'Pending',
                         'WhatsApp_Sent': 'NO',
                         'Tracking_Num': '',
@@ -513,6 +581,7 @@ def render_new_dispatch():
 # ============================================================================
 
 def render_operations():
+    radiant_line()
     st.markdown("### ✅ Operasyon Yönetimi")
     df = load_orders()
     
@@ -563,156 +632,149 @@ def render_operations():
                 st.rerun()
 
 # ============================================================================
-# 10. FİNANSAL YÜKÜMLÜLÜKLER MODÜLÜ (NEW FINANCIAL ENGINE)
+# 10. FATURA & ÖDEME PANELİ (BRAND PAYOUT HQ) - NEW v5.0
 # ============================================================================
 
-def render_financial_obligations():
-    st.markdown("## 📑 MUTABAKAT VE FİNANS")
-    
-    tab_inv, tab_pay = st.tabs(["📄 FATURA (ALACAKLAR)", "💸 ÖDEME (BORÇLAR)"])
+def render_brand_payout_hq():
+    radiant_line()
+    st.markdown("## 📑 FATURA & ÖDEME PANELİ (BRAND PAYOUT HQ)")
     
     df_orders = load_orders()
-    df_invoices = load_invoices()
     df_payments = load_payments()
     
-    # Sadece tamamlanmış siparişler finansallaşır
-    completed_orders = df_orders[df_orders['Status'] == 'Completed']
-    
-    # --- TAB 1: FATURA (KOMİSYON ALACAKLARI) ---
-    with tab_inv:
-        st.markdown("### 📥 Fatura Açılacak Tutarlar (Bizim Alacağımız)")
-        
-        for brand in BRANDS.keys():
-            brand_orders = completed_orders[completed_orders['Brand'] == brand]
+    # --- 1) BRAND SECTIONS ---
+    for brand in BRANDS.keys():
+        with st.expander(f"🏦 {brand} FİNANS YÖNETİMİ", expanded=True):
+            brand_meta = BRANDS[brand]
             
-            # Hesaplamalar
-            total_comm_due = brand_orders['Commission_Amt'].sum()
+            # Filter Orders
+            brand_orders = df_orders[df_orders['Brand'] == brand]
             
-            # Kesilmiş faturalar
-            brand_invoices = df_invoices[df_invoices['Brand'] == brand]
-            total_invoiced = brand_invoices['Amount'].sum() if not brand_invoices.empty else 0
+            # --- A) CALCULATIONS ---
+            # Completed Orders (Ready for payout)
+            completed_df = brand_orders[brand_orders['Status'] == 'Completed']
+            payout_completed = completed_df['Brand_Payout'].sum() if not completed_df.empty else 0
+            count_completed = len(completed_df)
             
-            not_invoiced = total_comm_due - total_invoiced
+            # Pending Orders (Not ready)
+            pending_df = brand_orders[brand_orders['Status'].isin(['Pending', 'Notified', 'Dispatched'])]
+            payout_pending = pending_df['Brand_Payout'].sum() if not pending_df.empty else 0
             
-            with st.expander(f"📄 {brand} - Fatura Bekleyen: {not_invoiced:,.2f}₺", expanded=(not_invoiced > 0)):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown(f"""
-                    <div class="glass-card">
-                        <div style="font-size:12px; opacity:0.7;">TOPLAM KOMİSYON HAKEDİŞİ</div>
-                        <div style="font-size:24px; font-weight:bold;">{total_comm_due:,.2f}₺</div>
-                        <hr style="border-color: rgba(255,255,255,0.1);">
-                        <div style="font-size:12px; opacity:0.7;">HENÜZ FATURALAŞMAMIŞ</div>
-                        <div style="font-size:24px; font-weight:bold; color:#4ECDC4;">{not_invoiced:,.2f}₺</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown("#### 📝 Fatura Kes")
-                    if not_invoiced > 0:
-                        inv_amount = st.number_input("Fatura Tutarı", value=float(not_invoiced), key=f"inv_amt_{brand}")
-                        inv_date = st.date_input("Fatura Tarihi", datetime.now(), key=f"inv_date_{brand}")
-                        inv_no = st.text_input("Fatura No (örn: GIB2025...)", key=f"inv_no_{brand}")
-                        
-                        if st.button("✅ Faturayı İşle", key=f"btn_inv_{brand}"):
-                            inv_data = {
-                                "Invoice_ID": f"INV-{datetime.now().strftime('%m%d%H%M')}",
-                                "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "Brand": brand,
-                                "Amount": inv_amount,
-                                "Date_Range": str(inv_date),
-                                "Invoice_Number": inv_no,
-                                "Status": "Issued",
-                                "Notes": "Otomatik oluşturuldu"
-                            }
-                            if save_invoice(inv_data):
-                                st.success("Fatura sisteme işlendi!")
-                                time.sleep(1)
-                                st.rerun()
-                    else:
-                        st.success("Tüm komisyonlar faturalandırıldı.")
-                        
-                # Fatura Geçmişi Tablosu
-                if not brand_invoices.empty:
-                    st.markdown("###### 📜 Kesilen Faturalar")
-                    st.dataframe(brand_invoices[['Time', 'Invoice_Number', 'Amount', 'Status']], use_container_width=True)
+            # Already Paid
+            brand_paid_df = df_payments[df_payments['Brand'] == brand]
+            total_paid = brand_paid_df['Amount'].sum() if not brand_paid_df.empty else 0
+            
+            # Net Due Now
+            net_transfer_due = payout_completed - total_paid
+            
+            # --- B) DISPLAY METRICS ---
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                <div class="glass-card" style="border-left: 4px solid #4ECDC4;">
+                    <div style="font-size:12px; opacity:0.7;">KESİLMESİ GEREKEN FATURA TUTARI</div>
+                    <div style="font-size:24px; font-weight:bold;">{payout_completed:,.2f}₺</div>
+                    <div style="font-size:11px; opacity:0.6;">(Tamamlanan {count_completed} Sipariş)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="glass-card" style="border-left: 4px solid #F59E0B;">
+                    <div style="font-size:12px; opacity:0.7;">HENÜZ TAMAMLANMAMIŞ SİPARİŞLER</div>
+                    <div style="font-size:24px; font-weight:bold;">{payout_pending:,.2f}₺</div>
+                    <div style="font-size:11px; opacity:0.6;">(Bekleyen/Kargoda)</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # --- C) FATURA DESCRIPTION AUTO-GEN ---
+            comm_rate = int(brand_meta['commission'] * 100)
+            fatura_desc = f"NATUVISIO satış komisyon hizmeti – {brand} – Toplam sipariş adedi: {count_completed} – Komisyon oranı: %{comm_rate} – Net marka ödemesi: {payout_completed:,.2f}₺"
+            
+            st.markdown("#### 🧾 Fatura Açıklaması (Otomatik)")
+            st.code(fatura_desc, language="text")
+            
+            # --- D) BANK TRANSFER INSTRUCTIONS ---
+            st.markdown("#### 💸 Banka Transfer Talimatı")
+            
+            col_bank1, col_bank2 = st.columns([2, 1])
+            with col_bank1:
+                st.info(f"""
+                **Alıcı:** {brand_meta['account_name']}  
+                **IBAN:** {brand_meta['iban']}  
+                **Tutar:** {net_transfer_due:,.2f}₺
+                """)
+            with col_bank2:
+                transfer_desc = f"NATUVISIO {brand} satış ödemesi – {datetime.now().strftime('%d.%m.%Y')} – Toplam: {net_transfer_due:,.0f}TL"
+                st.code(transfer_desc, language="text")
+            
+            # --- E) PAYMENT ACTION ---
+            if net_transfer_due > 0:
+                if st.button(f"💸 {brand} - ÖDEMEYİ YAPTIM ({net_transfer_due:,.0f}₺)", key=f"pay_{brand}"):
+                    payment_data = {
+                        "Payment_ID": f"PAY-{datetime.now().strftime('%m%d%H%M%S')}",
+                        "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "Brand": brand,
+                        "Amount": net_transfer_due,
+                        "Method": "Bank Transfer",
+                        "Reference": "Admin Manual",
+                        "Status": "Confirmed",
+                        "Proof_File": "",
+                        "Notes": "Payout HQ üzerinden ödendi",
+                        "Fatura_Sent": "No", # Default
+                        "Fatura_Date": "",
+                        "Fatura_Explanation": ""
+                    }
+                    if save_payment(payment_data):
+                        st.balloons()
+                        st.success("Ödeme sisteme işlendi!")
+                        time.sleep(1)
+                        st.rerun()
+            else:
+                st.success("✅ Tüm ödemeler yapıldı.")
 
-    # --- TAB 2: ÖDEME (MARKA HAKEDİŞLERİ) ---
-    with tab_pay:
-        st.markdown("### 📤 Yapılacak Ödemeler (Marka Hakedişleri)")
+    radiant_line()
+    
+    # --- 2) FATURA STATUS CROSS-CHECK TABLE ---
+    st.markdown("### 📋 Fatura Durum Tablosu (Cross-Check)")
+    
+    # Load fresh data
+    df_payments = load_payments()
+    
+    if not df_payments.empty:
+        # Display editable logic is tricky in standard streamlit without components, 
+        # so we will display the table and provide a form to update specific payment records.
         
-        for brand in BRANDS.keys():
-            brand_orders = completed_orders[completed_orders['Brand'] == brand]
+        st.dataframe(df_payments[['Time', 'Brand', 'Amount', 'Fatura_Sent', 'Fatura_Date']], use_container_width=True)
+        
+        # Update Form
+        with st.form("update_fatura_status"):
+            st.write("Fatura Durumu Güncelle")
+            pay_ids = df_payments['Payment_ID'].tolist()
+            selected_pay = st.selectbox("İşlem Seçiniz (Payment ID)", pay_ids)
             
-            # Hesaplamalar
-            total_payout_due = brand_orders['Brand_Payout'].sum()
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                new_status = st.checkbox("Fatura Kesildi mi? (YES)", value=False)
+            with col_f2:
+                new_date = st.date_input("Fatura Tarihi")
             
-            # Yapılan Ödemeler
-            brand_payments = df_payments[df_payments['Brand'] == brand]
-            total_paid = brand_payments['Amount'].sum() if not brand_payments.empty else 0
-            
-            balance_to_pay = total_payout_due - total_paid
-            
-            # Renk kodu: Borç varsa kırmızı, yoksa yeşil
-            header_color = "#EF4444" if balance_to_pay > 10 else "#10B981"
-            
-            with st.expander(f"💸 {brand} - Ödenecek: {balance_to_pay:,.2f}₺"):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown(f"""
-                    <div class="glass-card" style="border-left: 4px solid {header_color};">
-                        <div style="font-size:12px; opacity:0.7;">TOPLAM HAKEDİŞ</div>
-                        <div style="font-size:20px; font-weight:bold;">{total_payout_due:,.2f}₺</div>
-                        
-                        <div style="font-size:12px; opacity:0.7; margin-top:10px;">GÖNDERİLEN</div>
-                        <div style="font-size:20px; font-weight:bold;">{total_paid:,.2f}₺</div>
-                        
-                        <div style="font-size:12px; opacity:0.7; margin-top:10px;">KALAN BAKİYE</div>
-                        <div style="font-size:28px; font-weight:bold; color:{header_color};">{balance_to_pay:,.2f}₺</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.info(f"🏦 IBAN: {BRANDS[brand]['iban']}\n👤 {BRANDS[brand]['account_name']}")
-                
-                with col2:
-                    st.markdown("#### 💳 Ödeme Emri Gir")
-                    if balance_to_pay > 0:
-                        pay_amt = st.number_input("Gönderilecek Tutar", value=float(balance_to_pay), key=f"pay_amt_{brand}")
-                        pay_ref = st.text_input("Dekont / Referans No", key=f"pay_ref_{brand}")
-                        
-                        st.markdown(f"*Açıklama Önerisi:* NATUVISIO {brand} Hakediş Ödemesi")
-                        
-                        if st.button("🚀 Ödemeyi Kaydet", key=f"btn_pay_{brand}"):
-                            pay_data = {
-                                "Payment_ID": f"PAY-{datetime.now().strftime('%m%d%H%M')}",
-                                "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "Brand": brand,
-                                "Amount": pay_amt,
-                                "Method": "Bank Transfer",
-                                "Reference": pay_ref,
-                                "Status": "Sent",
-                                "Proof_File": "",
-                                "Notes": "Admin onayıyla gönderildi"
-                            }
-                            if save_payment(pay_data):
-                                st.success("Ödeme kaydı oluşturuldu!")
-                                time.sleep(1)
-                                st.rerun()
-                    else:
-                        st.success("Borç bakiyesi bulunmuyor.")
-                
-                # Ödeme Geçmişi
-                if not brand_payments.empty:
-                    st.markdown("###### 📜 Ödeme Geçmişi")
-                    st.dataframe(brand_payments[['Time', 'Amount', 'Reference', 'Status']], use_container_width=True)
+            if st.form_submit_button("Durumu Güncelle"):
+                # Update CSV
+                idx = df_payments.index[df_payments['Payment_ID'] == selected_pay][0]
+                df_payments.at[idx, 'Fatura_Sent'] = "YES" if new_status else "NO"
+                df_payments.at[idx, 'Fatura_Date'] = str(new_date)
+                update_payments(df_payments)
+                st.success("Güncellendi!")
+                st.rerun()
+    else:
+        st.info("Henüz ödeme kaydı yok.")
 
 # ============================================================================
 # 11. DİĞER FONKSİYONLAR
 # ============================================================================
 
 def render_all_orders():
+    radiant_line()
     st.markdown("### 📦 Tüm Sipariş Geçmişi")
     df = load_orders()
     if not df.empty:
@@ -721,6 +783,7 @@ def render_all_orders():
         st.info("Kayıt yok")
 
 def render_analytics():
+    radiant_line()
     st.markdown("### 📊 Analitik Raporlar")
     df = load_orders()
     if not df.empty:
