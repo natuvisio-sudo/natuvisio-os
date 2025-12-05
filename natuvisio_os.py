@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.2 (SUPERCHARGED CART)
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.3 (RENDER FIX EDITION)
 # ============================================================================
 
 st.set_page_config(
@@ -230,6 +230,7 @@ def init_databases():
             "Fatura_Sent", "Fatura_Date", "Fatura_Explanation"
         ]).to_csv(CSV_PAYMENTS, index=False)
     else:
+        # Auto-fix legacy columns
         df = pd.read_csv(CSV_PAYMENTS)
         if "Fatura_Sent" not in df.columns:
             df["Fatura_Sent"] = "No"
@@ -346,7 +347,7 @@ def login_screen():
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
             <h2>NATUVISIO ADMIN</h2>
-            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.2</p>
+            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.3</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -401,25 +402,13 @@ def dashboard():
     pending_count = len(df[df['Status'] == 'Pending'])
     
     with col_m1:
-        st.markdown(f"""<div class="glass-card" style="text-align:center;">
-            <div class="metric-label">TOPLAM CİRO</div>
-            <div class="metric-value">{total_rev:,.0f}₺</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM CİRO</div><div class="metric-value">{total_rev:,.0f}₺</div></div>""", unsafe_allow_html=True)
     with col_m2:
-        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #4ECDC4;">
-            <div class="metric-label">NET KOMİSYON</div>
-            <div class="metric-value" style="color:#4ECDC4;">{total_comm:,.0f}₺</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #4ECDC4;"><div class="metric-label">NET KOMİSYON</div><div class="metric-value" style="color:#4ECDC4;">{total_comm:,.0f}₺</div></div>""", unsafe_allow_html=True)
     with col_m3:
-        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #F59E0B;">
-            <div class="metric-label">BEKLEYEN İŞLEM</div>
-            <div class="metric-value" style="color:#F59E0B;">{pending_count}</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="text-align:center; border-top: 3px solid #F59E0B;"><div class="metric-label">BEKLEYEN İŞLEM</div><div class="metric-value" style="color:#F59E0B;">{pending_count}</div></div>""", unsafe_allow_html=True)
     with col_m4:
-        st.markdown(f"""<div class="glass-card" style="text-align:center;">
-            <div class="metric-label">TOPLAM SİPARİŞ</div>
-            <div class="metric-value">{len(df)}</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="glass-card" style="text-align:center;"><div class="metric-label">TOPLAM SİPARİŞ</div><div class="metric-value">{len(df)}</div></div>""", unsafe_allow_html=True)
 
     radiant_line()
 
@@ -438,7 +427,7 @@ def dashboard():
     with tabs[4]: render_analytics()
 
 # ============================================================================
-# 8. YENİ SEVKİYAT MODÜLÜ (SUPERCHARGED CART v5.2)
+# 8. YENİ SEVKİYAT MODÜLÜ (SUPERCHARGED CART v5.3 FIXED)
 # ============================================================================
 
 def render_new_dispatch():
@@ -483,7 +472,7 @@ def render_new_dispatch():
                 "product": prod,
                 "sku": prod_details['sku'],
                 "qty": qty,
-                "unit_price": unit_price, # SAVING UNIT PRICE
+                "unit_price": unit_price,
                 "subtotal": line_total,
                 "comm_amt": comm_amt,
                 "payout": payout
@@ -497,53 +486,53 @@ def render_new_dispatch():
         st.markdown("#### 📦 Sepet Özeti")
         
         if st.session_state.cart:
-            for i, item in enumerate(st.session_state.cart):
-                # v5.2 SUPERCHARGED VISUALIZATION
-                st.markdown(f"""
-                <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:700; font-size:14px;">{item['product']}</span>
-                        <span style="background:rgba(78,205,196,0.2); color:#4ECDC4; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">x{item['qty']}</span>
-                    </div>
-                    
-                    <div style="font-size:12px; color:{'#475569' if st.session_state.theme=='light' else 'rgba(255,255,255,0.6)'}; margin-bottom:8px; border-bottom:1px dashed rgba(128,128,128,0.3); padding-bottom:8px;">
-                        {item['unit_price']:,.0f}₺ <span style="opacity:0.5;">(birim)</span> &times; {item['qty']} = <strong style="color:{'#000' if st.session_state.theme=='light' else '#fff'};">{item['subtotal']:,.0f}₺</strong>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:11px;">
-                        <div style="background:rgba(252, 211, 77, 0.1); padding:4px; border-radius:4px; text-align:center;">
-                            <div style="color:#FCD34D; opacity:0.8;">Komisyon</div>
-                            <div style="color:#FCD34D; font-weight:bold;">{item['comm_amt']:,.0f}₺</div>
-                        </div>
-                        <div style="background:rgba(78, 205, 196, 0.1); padding:4px; border-radius:4px; text-align:center;">
-                            <div style="color:#4ECDC4; opacity:0.8;">Marka Ödemesi</div>
-                            <div style="color:#4ECDC4; font-weight:bold;">{item['payout']:,.0f}₺</div>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            for item in st.session_state.cart:
+                # v5.3 FIX: Removed indentation from HTML string to prevent Code Block rendering
+                item_html = f"""
+<div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+<span style="font-weight:700; font-size:14px;">{item['product']}</span>
+<span style="background:rgba(78,205,196,0.2); color:#4ECDC4; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">x{item['qty']}</span>
+</div>
+<div style="font-size:12px; opacity:0.7; margin-bottom:8px; border-bottom:1px dashed rgba(128,128,128,0.3); padding-bottom:8px;">
+{item['unit_price']:,.0f}₺ <span style="opacity:0.5;">(birim)</span> &times; {item['qty']} = <strong style="color:#fff;">{item['subtotal']:,.0f}₺</strong>
+</div>
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:11px;">
+<div style="background:rgba(252, 211, 77, 0.1); padding:4px; border-radius:4px; text-align:center;">
+<div style="color:#FCD34D; opacity:0.8;">Komisyon</div>
+<div style="color:#FCD34D; font-weight:bold;">{item['comm_amt']:,.0f}₺</div>
+</div>
+<div style="background:rgba(78, 205, 196, 0.1); padding:4px; border-radius:4px; text-align:center;">
+<div style="color:#4ECDC4; opacity:0.8;">Marka Ödemesi</div>
+<div style="color:#4ECDC4; font-weight:bold;">{item['payout']:,.0f}₺</div>
+</div>
+</div>
+</div>
+"""
+                st.markdown(item_html, unsafe_allow_html=True)
             
             total = sum(i['subtotal'] for i in st.session_state.cart)
             total_comm = sum(i['comm_amt'] for i in st.session_state.cart)
             total_pay = sum(i['payout'] for i in st.session_state.cart)
             
-            st.markdown(f"""
-            <div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 15px 0;">
-                <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:4px;">
-                    <span>Ürün Toplam:</span>
-                    <span style="font-weight:bold;">{total:,.0f}₺</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:14px; color:#FCD34D; margin-bottom:8px;">
-                    <span>Top. Komisyon:</span>
-                    <span style="font-weight:bold;">{total_comm:,.0f}₺</span>
-                </div>
-                <div style="margin: 5px 0; border-top: 1px dashed rgba(128,128,128,0.3);"></div>
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; color:#4ECDC4; margin-top:8px;">
-                    <span>MARKAYA NET:</span>
-                    <span>{total_pay:,.0f}₺</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            summary_html = f"""
+<div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 15px 0;">
+<div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:4px;">
+<span>Ürün Toplam:</span>
+<span style="font-weight:bold;">{total:,.0f}₺</span>
+</div>
+<div style="display:flex; justify-content:space-between; font-size:14px; color:#FCD34D; margin-bottom:8px;">
+<span>Top. Komisyon:</span>
+<span style="font-weight:bold;">{total_comm:,.0f}₺</span>
+</div>
+<div style="margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.2);"></div>
+<div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; color:#4ECDC4; margin-top:8px;">
+<span>MARKAYA NET:</span>
+<span>{total_pay:,.0f}₺</span>
+</div>
+</div>
+"""
+            st.markdown(summary_html, unsafe_allow_html=True)
             
             if st.button("⚡ SİPARİŞİ OLUŞTUR", type="primary"):
                 if cust_name and cust_phone:
