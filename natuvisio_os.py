@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.1 (DETAYLI SEPET)
+# 🏔️ NATUVISIO YÖNETİM SİSTEMİ - V5.2 (SUPERCHARGED CART)
 # ============================================================================
 
 st.set_page_config(
@@ -90,7 +90,6 @@ def get_icon(name, color="#ffffff", size=24):
 # ============================================================================
 
 def load_css(theme="dark"):
-    # Theme Variables
     if theme == "light":
         bg_image = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2070&auto=format&fit=crop"
         glass_bg = "rgba(255, 255, 255, 0.65)"
@@ -347,7 +346,7 @@ def login_screen():
         <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
             <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
             <h2>NATUVISIO ADMIN</h2>
-            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.1</p>
+            <p style="opacity: 0.6; font-size: 12px;">YÖNETİM PANELİ v5.2</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -439,7 +438,7 @@ def dashboard():
     with tabs[4]: render_analytics()
 
 # ============================================================================
-# 8. YENİ SEVKİYAT MODÜLÜ (NEW DISPATCH) - ENHANCED v5.1
+# 8. YENİ SEVKİYAT MODÜLÜ (SUPERCHARGED CART v5.2)
 # ============================================================================
 
 def render_new_dispatch():
@@ -471,7 +470,10 @@ def render_new_dispatch():
         with col_q: qty = st.number_input("Adet", 1, value=1, key="qty")
         
         prod_details = brand_data["products"][prod]
-        line_total = prod_details['price'] * qty
+        
+        # Calculations
+        unit_price = prod_details['price']
+        line_total = unit_price * qty
         comm_amt = line_total * brand_data['commission']
         payout = line_total - comm_amt
         
@@ -481,7 +483,7 @@ def render_new_dispatch():
                 "product": prod,
                 "sku": prod_details['sku'],
                 "qty": qty,
-                "price": prod_details['price'],
+                "unit_price": unit_price, # SAVING UNIT PRICE
                 "subtotal": line_total,
                 "comm_amt": comm_amt,
                 "payout": payout
@@ -495,24 +497,28 @@ def render_new_dispatch():
         st.markdown("#### 📦 Sepet Özeti")
         
         if st.session_state.cart:
-            for item in st.session_state.cart:
-                # v5.1 GRANULAR BREAKDOWN
+            for i, item in enumerate(st.session_state.cart):
+                # v5.2 SUPERCHARGED VISUALIZATION
                 st.markdown(f"""
-                <div style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-                    <div style="font-weight:bold; font-size:15px; margin-bottom: 4px;">{item['product']} <span style="color:#4ECDC4;">x{item['qty']}</span></div>
+                <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:700; font-size:14px;">{item['product']}</span>
+                        <span style="background:rgba(78,205,196,0.2); color:#4ECDC4; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">x{item['qty']}</span>
+                    </div>
                     
-                    <div style="font-size:11px; opacity:0.6; margin-bottom: 8px;">
-                        Birim Fiyat: {item['price']:,.0f}₺
+                    <div style="font-size:12px; color:{'#475569' if st.session_state.theme=='light' else 'rgba(255,255,255,0.6)'}; margin-bottom:8px; border-bottom:1px dashed rgba(128,128,128,0.3); padding-bottom:8px;">
+                        {item['unit_price']:,.0f}₺ <span style="opacity:0.5;">(birim)</span> &times; {item['qty']} = <strong style="color:{'#000' if st.session_state.theme=='light' else '#fff'};">{item['subtotal']:,.0f}₺</strong>
                     </div>
 
-                    <div style="font-size:13px; display:flex; justify-content:space-between; margin-bottom:2px;">
-                        <span>Ürün Toplam:</span> <span style="font-weight:bold;">{item['subtotal']:,.0f}₺</span>
-                    </div>
-                    <div style="font-size:13px; display:flex; justify-content:space-between; color:#FCD34D; margin-bottom:2px;">
-                        <span>Komisyon:</span> <span>{item['comm_amt']:,.0f}₺</span>
-                    </div>
-                    <div style="font-size:13px; display:flex; justify-content:space-between; color:#4ECDC4; font-weight:bold;">
-                        <span>Marka Ödemesi:</span> <span>{item['payout']:,.0f}₺</span>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:11px;">
+                        <div style="background:rgba(252, 211, 77, 0.1); padding:4px; border-radius:4px; text-align:center;">
+                            <div style="color:#FCD34D; opacity:0.8;">Komisyon</div>
+                            <div style="color:#FCD34D; font-weight:bold;">{item['comm_amt']:,.0f}₺</div>
+                        </div>
+                        <div style="background:rgba(78, 205, 196, 0.1); padding:4px; border-radius:4px; text-align:center;">
+                            <div style="color:#4ECDC4; opacity:0.8;">Marka Ödemesi</div>
+                            <div style="color:#4ECDC4; font-weight:bold;">{item['payout']:,.0f}₺</div>
+                        </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -522,17 +528,17 @@ def render_new_dispatch():
             total_pay = sum(i['payout'] for i in st.session_state.cart)
             
             st.markdown(f"""
-            <div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 10px 0;">
-                <div style="display:flex; justify-content:space-between; font-size:14px;">
+            <div style="background: rgba(78,205,196,0.1); padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:4px;">
                     <span>Ürün Toplam:</span>
-                    <span>{total:,.0f}₺</span>
+                    <span style="font-weight:bold;">{total:,.0f}₺</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size:14px; color:#FCD34D;">
+                <div style="display:flex; justify-content:space-between; font-size:14px; color:#FCD34D; margin-bottom:8px;">
                     <span>Top. Komisyon:</span>
-                    <span>{total_comm:,.0f}₺</span>
+                    <span style="font-weight:bold;">{total_comm:,.0f}₺</span>
                 </div>
-                <div style="margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.2);"></div>
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:16px; color:#4ECDC4;">
+                <div style="margin: 5px 0; border-top: 1px dashed rgba(128,128,128,0.3);"></div>
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; color:#4ECDC4; margin-top:8px;">
                     <span>MARKAYA NET:</span>
                     <span>{total_pay:,.0f}₺</span>
                 </div>
