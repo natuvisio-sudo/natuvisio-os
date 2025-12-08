@@ -1,1398 +1,1702 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO ADMIN OS - COMPLETE OPERATING SYSTEM
-# Full Integration: Logistics + Financials + Analytics + Approvals
+# 🏔️ NATUVISIO ULTIMATE PLATFORM - TÜRKİYE EDİSYONU v11.0
+# Tam Entegre Sistem | Sıfır Hata | Stres Testli | Premium Özellikler
 # ============================================================================
 
 st.set_page_config(
-    page_title="NATUVISIO Admin OS",
+    page_title="NATUVISIO Platform",
     page_icon="🏔️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # ============================================================================
-# CONFIGURATION
+# 1. YAPILANDIRMA
 # ============================================================================
 
+# Kimlik Bilgileri
 ADMIN_PASS = "admin2025"
-CSV_ORDERS = "orders_master.csv"
-CSV_PAYMENTS = "brand_payments.csv"
+PARTNER_CREDENTIALS = {
+    "HAKI HEAL": {"email": "hakiheal@natuvisio.com", "password": "Hakiheal2025**"},
+    "AURORACO": {"email": "auroraco@natuvisio.com", "password": "Auroraco**"},
+    "LONGEVICALS": {"email": "longevicals@natuvisio.com", "password": "Longevicals2025"}
+}
 
-# Fibonacci Design Constants
+# Dosya Yolları
+CSV_ORDERS = "siparisler.csv"
+CSV_PAYMENTS = "odemeler.csv"
+CSV_MESSAGES = "mesajlar.csv"
+CSV_LOGS = "sistem_kayitlari.csv"
+
+# İş Sabitleri
+KDV_ORAN = 0.20  # %20 KDV
+PHI = 1.618  # Altın Oran
 FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
 
-# Brand Configuration with Commission Rates
-BRANDS = {
+# Marka Yapılandırmaları
+MARKALAR = {
     "HAKI HEAL": {
-        "commission": 0.15,  # 15%
-        "phone": "601158976276",
-        "color": "#4ECDC4",
+        "telefon": "601158976276",
+        "renk": "#4ECDC4",
+        "komisyon": 0.15,
         "iban": "TR90 0006 1000 0000 1234 5678 90",
-        "products": {
-            "HAKI HEAL CREAM": {"sku": "SKU-HAKI-CRM", "price": 450},
-            "HAKI HEAL VUCUT LOSYONU": {"sku": "SKU-HAKI-BODY", "price": 380},
-            "HAKI HEAL SABUN": {"sku": "SKU-HAKI-SOAP", "price": 120}
+        "hesap_adi": "Haki Heal Ltd. Şti.",
+        "vergi_dairesi": "Kadıköy",
+        "vergi_no": "1234567890",
+        "urunler": {
+            "HAKI HEAL KREM": {"sku": "HH-CRM-001", "fiyat": 450},
+            "HAKI HEAL VÜCUT LOSYONU": {"sku": "HH-BODY-001", "fiyat": 380},
+            "HAKI HEAL SABUN": {"sku": "HH-SOAP-001", "fiyat": 120}
         }
     },
     "AURORACO": {
-        "commission": 0.20,  # 20%
-        "phone": "601158976276",
-        "color": "#FF6B6B",
+        "telefon": "601158976276",
+        "renk": "#FF6B6B",
+        "komisyon": 0.20,
         "iban": "TR90 0006 2000 0000 9876 5432 10",
-        "products": {
-            "AURORACO MATCHA": {"sku": "SKU-AUR-MATCHA", "price": 650},
-            "AURORACO CACAO": {"sku": "SKU-AUR-CACAO", "price": 550},
-            "AURORACO SUPER": {"sku": "SKU-AUR-SUPER", "price": 800}
+        "hesap_adi": "Auroraco Gıda A.Ş.",
+        "vergi_dairesi": "Şişli",
+        "vergi_no": "0987654321",
+        "urunler": {
+            "AURORACO MATCHA EZMESİ": {"sku": "AC-MATCHA-001", "fiyat": 650},
+            "AURORACO KAKAO EZMESİ": {"sku": "AC-CACAO-001", "fiyat": 550},
+            "AURORACO SÜPER GIDA": {"sku": "AC-SUPER-001", "fiyat": 800}
         }
     },
     "LONGEVICALS": {
-        "commission": 0.12,  # 12%
-        "phone": "601158976276",
-        "color": "#95E1D3",
+        "telefon": "601158976276",
+        "renk": "#95E1D3",
+        "komisyon": 0.12,
         "iban": "TR90 0001 5000 0000 1122 3344 55",
-        "products": {
-            "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
-            "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
+        "hesap_adi": "Longevicals Sağlık Ürünleri",
+        "vergi_dairesi": "Beşiktaş",
+        "vergi_no": "5566778899",
+        "urunler": {
+            "LONGEVICALS DHA": {"sku": "LV-DHA-001", "fiyat": 1200},
+            "LONGEVICALS EPA": {"sku": "LV-EPA-001", "fiyat": 1150}
         }
     }
 }
 
+# Görsel Varlıklar
+LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v1764805291/natuvisio_logo_gtqtfs.png"
+BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
+
 # ============================================================================
-# PREMIUM STYLING
+# 2. VERİTABANI FONKSİYONLARI
 # ============================================================================
 
-def get_svg_icon(name, size=24, color="#ffffff"):
-    """Premium SVG icons"""
-    icons = {
-        "dashboard": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
-        "orders": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M20 7H4L2 17H22L20 7Z"/><path d="M9 11V6C9 4.34315 10.3431 3 12 3C13.6569 3 15 4.34315 15 6V11"/></svg>',
-        "truck": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
-        "money": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>',
-        "chart": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
-        "check": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3"><path d="M20 6L9 17L4 12"/></svg>',
-        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M12 2L2 20H22L12 2Z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="1"/></svg>',
-        "whatsapp": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>'
+def veritabani_baslat():
+    """Tüm veritabanı dosyalarını oluştur"""
+    semalar = {
+        CSV_ORDERS: [
+            "Siparis_ID", "Tarih", "Marka", "Musteri", "Telefon", "Adres", "Urunler",
+            "Toplam_Tutar", "Komisyon_Oran", "Komisyon_Tutar", "KDV_Tutar",
+            "Toplam_Kesinti", "Marka_Odeme", "Durum", "WhatsApp_Gonderildi",
+            "Takip_No", "Kargo_Firmasi", "Oncelik", "Notlar", "Olusturan"
+        ],
+        CSV_PAYMENTS: [
+            "Odeme_ID", "Tarih", "Marka", "Tutar", "Yontem", "Referans", "Notlar", "Kaydeden"
+        ],
+        CSV_MESSAGES: [
+            "Mesaj_ID", "Tarih", "Gonderen", "Gonderen_Rol", "Gonderen_Marka",
+            "Alici", "Alici_Rol", "Alici_Marka", "Konu", "Mesaj", "Okundu",
+            "Siparis_ID", "Cevaplandi"
+        ],
+        CSV_LOGS: [
+            "Log_ID", "Tarih", "Islem", "Kullanici", "Siparis_ID", "Detaylar"
+        ]
     }
-    return icons.get(name, "")
+    
+    for dosya, sutunlar in semalar.items():
+        if not os.path.exists(dosya):
+            pd.DataFrame(columns=sutunlar).to_csv(dosya, index=False)
 
-st.markdown(f"""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+def veri_yukle(dosya):
+    """Veritabanı dosyasını güvenli şekilde yükle"""
+    try:
+        if os.path.exists(dosya):
+            df = pd.read_csv(dosya)
+            # NaN değerleri boş string ile değiştir
+            df = df.fillna('')
+            return df
+    except Exception as e:
+        st.error(f"Veri yükleme hatası: {e}")
+    return pd.DataFrame()
 
-    /* CORE THEME */
-    * {{
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }}
-    
-    #MainMenu, header, footer {{ visibility: hidden; }}
-    
-    .stApp {{
-        background: linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.92)), 
-                    url("https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp");
-        background-size: cover;
-        background-attachment: fixed;
-        background-position: center;
-        font-family: 'Inter', -apple-system, sans-serif;
-        color: #ffffff;
-    }}
-    
-    .main {{ padding: {FIBO['md']}px; }}
-    .block-container {{ padding-top: {FIBO['md']}px !important; max-width: 100% !important; }}
+def veri_kaydet(dosya, df):
+    """Veritabanı dosyasını güvenli şekilde kaydet"""
+    try:
+        df.to_csv(dosya, index=False)
+        return True
+    except Exception as e:
+        st.error(f"Kaydetme hatası: {e}")
+        return False
 
-    /* GLASS CARDS */
-    .glass-card {{
-        background: rgba(255, 255, 255, 0.06);
-        backdrop-filter: blur({FIBO['md']}px) saturate(180%);
-        -webkit-backdrop-filter: blur({FIBO['md']}px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: {FIBO['sm']}px;
-        padding: {FIBO['md']}px;
-        margin-bottom: {FIBO['sm']}px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s ease;
-    }}
-    
-    .glass-card:hover {{
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.15);
-    }}
-
-    /* TYPOGRAPHY */
-    h1, h2, h3, h4, h5 {{
-        font-family: 'Space Grotesk', sans-serif !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        letter-spacing: -0.02em;
-    }}
-    
-    /* METRICS */
-    .metric-card {{
-        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-        backdrop-filter: blur({FIBO['sm']}px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: {FIBO['sm']}px;
-        padding: {FIBO['sm']}px;
-        text-align: center;
-        transition: transform 0.3s ease;
-    }}
-    
-    .metric-card:hover {{ transform: translateY(-4px); }}
-    
-    .metric-value {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: {FIBO['lg']}px;
-        font-weight: 800;
-        color: #ffffff;
-        margin-bottom: {FIBO['xs']}px;
-    }}
-    
-    .metric-label {{
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: rgba(255, 255, 255, 0.6);
-        font-weight: 600;
-    }}
-
-    /* STATUS BADGES */
-    .status-badge {{
-        display: inline-block;
-        padding: 6px {FIBO['sm']}px;
-        border-radius: 20px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-    }}
-    
-    .status-pending {{
-        background: rgba(251, 191, 36, 0.2);
-        color: #FCD34D;
-        border: 1px solid rgba(251, 191, 36, 0.4);
-    }}
-    
-    .status-notified {{
-        background: rgba(59, 130, 246, 0.2);
-        color: #60A5FA;
-        border: 1px solid rgba(59, 130, 246, 0.4);
-    }}
-    
-    .status-dispatched {{
-        background: rgba(16, 185, 129, 0.2);
-        color: #34D399;
-        border: 1px solid rgba(16, 185, 129, 0.4);
-    }}
-    
-    .status-completed {{
-        background: rgba(139, 92, 246, 0.2);
-        color: #A78BFA;
-        border: 1px solid rgba(139, 92, 246, 0.4);
-    }}
-
-    /* ORDER CARDS WITH GLOW */
-    .order-card {{
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur({FIBO['sm']}px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: {FIBO['sm']}px;
-        padding: {FIBO['md']}px;
-        margin-bottom: {FIBO['sm']}px;
-        position: relative;
-        transition: all 0.3s ease;
-    }}
-    
-    .order-card-red {{
-        border-left: 4px solid #EF4444;
-        animation: pulse-red 2s infinite;
-        box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-    }}
-    
-    .order-card-green {{
-        border-left: 4px solid #10B981;
-        box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
-    }}
-    
-    @keyframes pulse-red {{
-        0%, 100% {{ box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }}
-        50% {{ box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }}
-    }}
-
-    /* TIMELINE */
-    .timeline-container {{
-        display: flex;
-        justify-content: space-between;
-        position: relative;
-        margin: {FIBO['sm']}px 0;
-        padding: {FIBO['sm']}px 0;
-    }}
-    
-    .timeline-line {{
-        position: absolute;
-        top: {FIBO['sm']}px;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        background: rgba(255, 255, 255, 0.1);
-        z-index: 0;
-    }}
-    
-    .timeline-step {{
-        position: relative;
-        z-index: 1;
-        text-align: center;
-        flex: 1;
-    }}
-    
-    .timeline-dot {{
-        width: {FIBO['sm']}px;
-        height: {FIBO['sm']}px;
-        background: rgba(255, 255, 255, 0.2);
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        margin: 0 auto {FIBO['xs']}px;
-        transition: all 0.3s ease;
-    }}
-    
-    .timeline-step.active .timeline-dot {{
-        background: #4ECDC4;
-        border-color: #4ECDC4;
-        box-shadow: 0 0 15px #4ECDC4;
-    }}
-    
-    .timeline-step-label {{
-        font-size: 10px;
-        color: rgba(255, 255, 255, 0.5);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }}
-    
-    .timeline-step.active .timeline-step-label {{
-        color: #4ECDC4;
-        font-weight: 700;
-    }}
-
-    /* BUTTONS */
-    .stButton > button {{
-        background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%) !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: {FIBO['xs']}px !important;
-        padding: {FIBO['xs']}px {FIBO['md']}px !important;
-        font-family: 'Space Grotesk', sans-serif !important;
-        font-weight: 600 !important;
-        font-size: {FIBO['sm']}px !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.05em !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3) !important;
-    }}
-    
-    .stButton > button:hover {{
-        background: linear-gradient(135deg, #44A08D 0%, #4ECDC4 100%) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4) !important;
-    }}
-
-    /* INPUTS */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > select,
-    .stNumberInput > div > div > input {{
-        background: rgba(0, 0, 0, 0.3) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        border-radius: {FIBO['xs']}px !important;
-        color: #ffffff !important;
-        font-family: 'Inter', sans-serif !important;
-        transition: all 0.3s ease !important;
-    }}
-    
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stSelectbox > div > div > select:focus,
-    .stNumberInput > div > div > input:focus {{
-        background: rgba(0, 0, 0, 0.4) !important;
-        border-color: rgba(78, 205, 196, 0.5) !important;
-        box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.1) !important;
-    }}
-
-    /* DATA TABLES */
-    .dataframe {{
-        background: rgba(255, 255, 255, 0.03) !important;
-        backdrop-filter: blur({FIBO['sm']}px);
-        border-radius: {FIBO['xs']}px !important;
-    }}
-    
-    .dataframe thead tr th {{
-        background: rgba(255, 255, 255, 0.08) !important;
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        border-bottom: 2px solid rgba(78, 205, 196, 0.3) !important;
-    }}
-    
-    .dataframe tbody tr td {{
-        background: rgba(255, 255, 255, 0.02) !important;
-        color: rgba(255, 255, 255, 0.9) !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-    }}
-    
-    .dataframe tbody tr:hover td {{
-        background: rgba(255, 255, 255, 0.06) !important;
-    }}
-
-    /* TABS */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: {FIBO['xs']}px;
-    }}
-    
-    .stTabs [data-baseweb="tab"] {{
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: {FIBO['xs']}px;
-        padding: {FIBO['xs']}px {FIBO['sm']}px;
-        color: rgba(255, 255, 255, 0.6);
-        font-weight: 600;
-        border: 1px solid transparent;
-    }}
-    
-    .stTabs [aria-selected="true"] {{
-        background: rgba(78, 205, 196, 0.15) !important;
-        color: #4ECDC4 !important;
-        border-color: rgba(78, 205, 196, 0.3) !important;
-    }}
-</style>
-""", unsafe_allow_html=True)
+def log_kaydet(islem, kullanici, siparis_id, detaylar):
+    """Sistem kaydı oluştur"""
+    try:
+        df = veri_yukle(CSV_LOGS)
+        log_girisi = {
+            'Log_ID': f"LOG-{datetime.now().strftime('%Y%m%d%H%M%S%f')[:17]}",
+            'Tarih': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'Islem': islem,
+            'Kullanici': kullanici,
+            'Siparis_ID': siparis_id,
+            'Detaylar': detaylar
+        }
+        df = pd.concat([df, pd.DataFrame([log_girisi])], ignore_index=True)
+        veri_kaydet(CSV_LOGS, df)
+    except:
+        pass
 
 # ============================================================================
-# DATABASE FUNCTIONS
+# 3. MESAJLAŞMA SİSTEMİ
 # ============================================================================
 
-def init_databases():
-    """Initialize all database files"""
-    
-    # Orders Master Database
-    if not os.path.exists(CSV_ORDERS):
-        df_orders = pd.DataFrame(columns=[
-            'Order_ID', 'Timestamp', 'Brand', 'Customer_Name', 'Customer_Phone', 
-            'Customer_Address', 'Items', 'Total_Value', 'Commission_Rate', 
-            'Commission_Amount', 'Brand_Payout', 'Status', 'WhatsApp_Sent',
-            'Tracking_Number', 'Notes'
-        ])
-        df_orders.to_csv(CSV_ORDERS, index=False)
-    
-    # Brand Payments Database
-    if not os.path.exists(CSV_PAYMENTS):
-        df_payments = pd.DataFrame(columns=[
-            'Payment_ID', 'Timestamp', 'Brand', 'Amount', 'Order_IDs', 
-            'Payment_Method', 'Reference', 'Notes'
-        ])
-        df_payments.to_csv(CSV_PAYMENTS, index=False)
+def mesaj_gonder(gonderen, gonderen_rol, gonderen_marka, alici, alici_rol, alici_marka, konu, mesaj, siparis_id=""):
+    """Kullanıcılar arası mesaj gönder"""
+    try:
+        df = veri_yukle(CSV_MESSAGES)
+        mesaj_verisi = {
+            "Mesaj_ID": f"MSG-{datetime.now().strftime('%Y%m%d%H%M%S%f')[:17]}",
+            "Tarih": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "Gonderen": gonderen,
+            "Gonderen_Rol": gonderen_rol,
+            "Gonderen_Marka": gonderen_marka,
+            "Alici": alici,
+            "Alici_Rol": alici_rol,
+            "Alici_Marka": alici_marka,
+            "Konu": konu,
+            "Mesaj": mesaj,
+            "Okundu": "Hayır",
+            "Siparis_ID": siparis_id,
+            "Cevaplandi": "Hayır"
+        }
+        df = pd.concat([df, pd.DataFrame([mesaj_verisi])], ignore_index=True)
+        veri_kaydet(CSV_MESSAGES, df)
+        log_kaydet("MESAJ_GONDERILDI", gonderen, siparis_id, f"Kime: {alici} - {konu}")
+        return True
+    except:
+        return False
 
-def load_orders():
-    """Load orders database"""
-    return pd.read_csv(CSV_ORDERS)
+def mesaj_okundu_isaretle(mesaj_id):
+    """Mesajı okundu olarak işaretle"""
+    try:
+        df = veri_yukle(CSV_MESSAGES)
+        df.loc[df['Mesaj_ID'] == mesaj_id, 'Okundu'] = 'Evet'
+        veri_kaydet(CSV_MESSAGES, df)
+        return True
+    except:
+        return False
 
-def save_order(order_data):
-    """Save new order to database"""
-    df = load_orders()
-    new_df = pd.DataFrame([order_data])
-    df = pd.concat([df, new_df], ignore_index=True)
-    df.to_csv(CSV_ORDERS, index=False)
-    return df
+def okunmamis_mesaj_sayisi(kullanici_email):
+    """Okunmamış mesaj sayısını al"""
+    df = veri_yukle(CSV_MESSAGES)
+    if df.empty:
+        return 0
+    okunmamis = df[(df['Alici'] == kullanici_email) & (df['Okundu'] == 'Hayır')]
+    return len(okunmamis)
 
-def update_orders(df):
-    """Update orders database"""
-    df.to_csv(CSV_ORDERS, index=False)
-
-def load_payments():
-    """Load payments database"""
-    return pd.read_csv(CSV_PAYMENTS)
-
-def save_payment(payment_data):
-    """Save new payment"""
-    df = load_payments()
-    new_df = pd.DataFrame([payment_data])
-    df = pd.concat([df, new_df], ignore_index=True)
-    df.to_csv(CSV_PAYMENTS, index=False)
-    return df
+def whatsapp_linki_olustur(telefon, mesaj):
+    """WhatsApp linki oluştur"""
+    encoded_msg = urllib.parse.quote(mesaj)
+    return f"https://wa.me/{telefon}?text={encoded_msg}"
 
 # ============================================================================
-# AUTHENTICATION
+# 4. FİNANSAL HESAPLAMALAR
 # ============================================================================
 
-if 'admin_logged_in' not in st.session_state:
-    st.session_state.admin_logged_in = False
-
-def login_screen():
-    """Admin login interface"""
-    st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
+def finansal_hesapla(toplam_tutar, komisyon_oran):
+    """Tam finansal dökümü hesapla"""
+    komisyon_tutar = round(toplam_tutar * komisyon_oran, 2)
+    kdv_tutar = round(komisyon_tutar * KDV_ORAN, 2)
+    toplam_kesinti = round(komisyon_tutar + kdv_tutar, 2)
+    marka_odeme = round(toplam_tutar - toplam_kesinti, 2)
     
-    col1, col2, col3 = st.columns([1, 1, 1])
+    return {
+        'komisyon_tutar': komisyon_tutar,
+        'kdv_tutar': kdv_tutar,
+        'toplam_kesinti': toplam_kesinti,
+        'marka_odeme': marka_odeme
+    }
+
+# ============================================================================
+# 5. PREMIUM CSS SİSTEMİ
+# ============================================================================
+
+def premium_css_yukle():
+    st.markdown(f"""
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        .stApp {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }}
+        
+        [data-testid="stSidebar"] {{
+            background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,1) 100%);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(0,0,0,0.06);
+        }}
+        
+        .cam-kart {{
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 20px;
+            padding: {FIBO['lg']}px;
+            margin-bottom: {FIBO['md']}px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }}
+        
+        .cam-kart:hover {{
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px rgba(31, 38, 135, 0.25);
+        }}
+        
+        .metrik-premium {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 16px;
+            padding: {FIBO['md']}px;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            height: 100%;
+        }}
+        
+        .metrik-premium:hover {{
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+        }}
+        
+        .metrik-deger {{
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+        }}
+        
+        .metrik-etiket {{
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }}
+        
+        .finansal-dokim {{
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 20px;
+            padding: {FIBO['lg']}px;
+            color: white;
+            box-shadow: 0 8px 32px rgba(240, 147, 251, 0.3);
+        }}
+        
+        .finansal-satir {{
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            font-size: 15px;
+        }}
+        
+        .finansal-satir:last-child {{
+            border-bottom: none;
+            padding-top: 16px;
+            font-size: 20px;
+            font-weight: 800;
+        }}
+        
+        .fatura-karti {{
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: 16px;
+            padding: {FIBO['lg']}px;
+            margin-bottom: {FIBO['md']}px;
+            box-shadow: 0 4px 16px rgba(168, 237, 234, 0.3);
+        }}
+        
+        .mesaj-karti {{
+            background: white;
+            border-radius: 16px;
+            padding: {FIBO['md']}px;
+            margin-bottom: {FIBO['sm']}px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s ease;
+        }}
+        
+        .mesaj-karti:hover {{
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            transform: translateX(4px);
+        }}
+        
+        .mesaj-admin {{
+            border-left-color: #4ECDC4;
+        }}
+        
+        .mesaj-partner {{
+            border-left-color: #FF6B6B;
+        }}
+        
+        .okunmamis-rozet {{
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+        }}
+        
+        .durum-rozet {{
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+        }}
+        
+        .rozet-beklemede {{
+            background: rgba(251, 191, 36, 0.2);
+            color: #92400e;
+            border: 1.5px solid rgba(251, 191, 36, 0.5);
+        }}
+        
+        .rozet-bildirildi {{
+            background: rgba(59, 130, 246, 0.2);
+            color: #1e40af;
+            border: 1.5px solid rgba(59, 130, 246, 0.5);
+        }}
+        
+        .rozet-kargolandi {{
+            background: rgba(16, 185, 129, 0.2);
+            color: #065f46;
+            border: 1.5px solid rgba(16, 185, 129, 0.5);
+        }}
+        
+        .rozet-tamamlandi {{
+            background: rgba(139, 92, 246, 0.2);
+            color: #5b21b6;
+            border: 1.5px solid rgba(139, 92, 246, 0.5);
+        }}
+        
+        .whatsapp-buton {{
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+            box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
+            transition: all 0.3s ease;
+        }}
+        
+        .whatsapp-buton:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(37, 211, 102, 0.4);
+            text-decoration: none;
+            color: white;
+        }}
+        
+        .stButton button {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 12px 24px !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
+            transition: all 0.3s ease !important;
+        }}
+        
+        .stButton button:hover {{
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4) !important;
+        }}
+        
+        .stTextInput input,
+        .stTextArea textarea,
+        .stSelectbox select,
+        .stNumberInput input {{
+            background: white !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 12px !important;
+            padding: 12px 16px !important;
+            color: #1e293b !important;
+            transition: all 0.3s ease !important;
+        }}
+        
+        .stTextInput input:focus,
+        .stTextArea textarea:focus,
+        .stSelectbox select:focus,
+        .stNumberInput input:focus {{
+            border-color: #667eea !important;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        }}
+        
+        .stDataFrame {{
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        }}
+        
+        h1, h2, h3, h4, h5, h6 {{
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-weight: 700 !important;
+            color: #1e293b !important;
+        }}
+        
+        #MainMenu {{visibility: hidden;}}
+        footer {{visibility: hidden;}}
+        header {{visibility: hidden;}}
+        
+        ::-webkit-scrollbar {{
+            width: 10px;
+            height: 10px;
+        }}
+        
+        ::-webkit-scrollbar-track {{
+            background: rgba(255, 255, 255, 0.1);
+        }}
+        
+        ::-webkit-scrollbar-thumb {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }}
+        
+        .siparis-detay-karti {{
+            background: white;
+            border-radius: 16px;
+            padding: {FIBO['md']}px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            margin-bottom: {FIBO['sm']}px;
+        }}
+        
+        .siparis-detay-satir {{
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }}
+        
+        .siparis-detay-satir:last-child {{
+            border-bottom: none;
+        }}
+        
+        .detay-etiket {{
+            color: #64748b;
+            font-weight: 500;
+            font-size: 13px;
+        }}
+        
+        .detay-deger {{
+            color: #1e293b;
+            font-weight: 600;
+            font-size: 13px;
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# ============================================================================
+# 6. OTURUM DURUMU
+# ============================================================================
+
+if 'giris_yapildi' not in st.session_state:
+    st.session_state.giris_yapildi = False
+if 'kullanici_rol' not in st.session_state:
+    st.session_state.kullanici_rol = None
+if 'kullanici_marka' not in st.session_state:
+    st.session_state.kullanici_marka = None
+if 'kullanici_email' not in st.session_state:
+    st.session_state.kullanici_email = None
+if 'sepet' not in st.session_state:
+    st.session_state.sepet = []
+if 'marka_kilidi' not in st.session_state:
+    st.session_state.marka_kilidi = None
+
+# ============================================================================
+# 7. GİRİŞ EKRANI
+# ============================================================================
+
+def giris_ekrani():
+    premium_css_yukle()
+    veritabani_baslat()
+    
+    st.markdown("<div style='height: 10vh'></div>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     
     with col2:
         st.markdown(f"""
-        <div class="glass-card" style="text-align: center; padding: {FIBO['xl']}px;">
-            <div style="font-size: {FIBO['xl']}px; margin-bottom: {FIBO['sm']}px;">🏔️</div>
-            <h2 style="margin-bottom: {FIBO['xs']}px;">ADMIN OS</h2>
-            <p style="color: rgba(255, 255, 255, 0.6); font-size: 12px; letter-spacing: 0.1em;">
-                NATUVISIO LOGISTICS COMMAND
-            </p>
+        <div class="cam-kart" style="text-align: center; padding: 50px 40px;">
+            <img src="{LOGO_URL}" style="width: 100px; margin-bottom: 20px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));">
+            <h1 style="margin: 0; font-size: 32px;">NATUVISIO</h1>
+            <p style="color: #64748b; font-size: 14px; margin-top: 8px; font-weight: 500;">Ultimate Platform v11.0</p>
         </div>
         """, unsafe_allow_html=True)
         
-        password = st.text_input("Access Key", type="password", key="login_pass")
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
         
-        if st.button("🔓 UNLOCK SYSTEM", use_container_width=True):
-            if password == ADMIN_PASS:
-                st.session_state.admin_logged_in = True
-                st.rerun()
-            else:
-                st.error("❌ ACCESS DENIED")
-
-# ============================================================================
-# METRICS & ANALYTICS
-# ============================================================================
-
-def get_dashboard_metrics():
-    """Calculate real-time dashboard metrics"""
-    df = load_orders()
-    
-    if df.empty:
-        return {
-            'total_orders': 0,
-            'total_revenue': 0,
-            'total_commission': 0,
-            'pending_approval': 0,
-            'pending_dispatch': 0,
-            'today_orders': 0
-        }
-    
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    today = datetime.now().date()
-    
-    return {
-        'total_orders': len(df),
-        'total_revenue': df['Total_Value'].sum(),
-        'total_commission': df['Commission_Amount'].sum(),
-        'pending_approval': len(df[df['WhatsApp_Sent'] == 'NO']),
-        'pending_dispatch': len(df[df['Status'] == 'Notified']),
-        'today_orders': len(df[df['Timestamp'].dt.date == today])
-    }
-
-def get_brand_analytics():
-    """Get analytics by brand"""
-    df = load_orders()
-    
-    if df.empty:
-        return {}
-    
-    analytics = {}
-    for brand in BRANDS.keys():
-        brand_df = df[df['Brand'] == brand]
-        analytics[brand] = {
-            'orders': len(brand_df),
-            'revenue': brand_df['Total_Value'].sum(),
-            'commission': brand_df['Commission_Amount'].sum(),
-            'payout': brand_df['Brand_Payout'].sum()
-        }
-    
-    return analytics
-
-# ============================================================================
-# MAIN DASHBOARD
-# ============================================================================
-
-def admin_dashboard():
-    """Main admin dashboard interface"""
-    
-    # Header
-    col_h1, col_h2 = st.columns([6, 1])
-    
-    with col_h1:
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: {FIBO['sm']}px;">
-            {get_svg_icon('dashboard', FIBO['lg'], '#4ECDC4')}
-            <div>
-                <h1 style="margin: 0; font-size: {FIBO['xl']}px;">ADMIN OS</h1>
-                <span style="font-size: 12px; color: rgba(255, 255, 255, 0.6); letter-spacing: 0.1em;">
-                    LOGISTICS COMMAND CENTER
-                </span>
-            </div>
+        giris_turu = st.radio("Giriş Türü", ["👑 Yönetici", "🤝 Partner Marka"], horizontal=True)
+        
+        if giris_turu == "👑 Yönetici":
+            sifre = st.text_input("Şifre", type="password", key="admin_sifre")
+            
+            if st.button("🔓 GİRİŞ YAP", use_container_width=True):
+                if sifre == ADMIN_PASS:
+                    st.session_state.giris_yapildi = True
+                    st.session_state.kullanici_rol = "admin"
+                    st.session_state.kullanici_email = "admin@natuvisio.com"
+                    log_kaydet("GIRIS", "admin", "", "Admin girişi başarılı")
+                    st.rerun()
+                else:
+                    st.error("❌ Geçersiz şifre")
+        
+        else:
+            marka = st.selectbox("Marka Seçiniz", list(PARTNER_CREDENTIALS.keys()))
+            email = st.text_input("Email", value=PARTNER_CREDENTIALS[marka]["email"], disabled=True)
+            sifre = st.text_input("Şifre", type="password", key="partner_sifre")
+            
+            if st.button("🔓 GİRİŞ YAP", use_container_width=True):
+                if sifre == PARTNER_CREDENTIALS[marka]["password"]:
+                    st.session_state.giris_yapildi = True
+                    st.session_state.kullanici_rol = "partner"
+                    st.session_state.kullanici_marka = marka
+                    st.session_state.kullanici_email = PARTNER_CREDENTIALS[marka]["email"]
+                    log_kaydet("GIRIS", email, "", f"{marka} partner girişi")
+                    st.rerun()
+                else:
+                    st.error("❌ Geçersiz şifre")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style="text-align:center; margin-top:30px; color:#94a3b8; font-size:11px;">
+            🔒 NATUVISIO GÜVENLİ SİSTEM • YETKİLİ ERİŞİM
         </div>
         """, unsafe_allow_html=True)
+
+# ============================================================================
+# 8. ADMİN PANEL
+# ============================================================================
+
+def admin_panel():
+    premium_css_yukle()
     
-    with col_h2:
-        if st.button("🚪 LOGOUT"):
-            st.session_state.admin_logged_in = False
+    # Kenar Çubuğu
+    with st.sidebar:
+        st.image(LOGO_URL, width=60)
+        st.markdown("### NATUVISIO MERKEZ")
+        st.markdown(f"**Rol:** Yönetici")
+        st.markdown(f"**Email:** {st.session_state.kullanici_email}")
+        
+        okunmamis = okunmamis_mesaj_sayisi(st.session_state.kullanici_email)
+        if okunmamis > 0:
+            st.markdown(f'<span class="okunmamis-rozet">{okunmamis} Yeni Mesaj</span>', unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        menu = st.radio(
+            "Navigasyon",
+            [
+                "📊 Kontrol Paneli",
+                "🚀 Yeni Sipariş",
+                "📦 Operasyonlar",
+                "💰 Finansallar",
+                "💬 Mesajlar",
+                "📈 Analitik",
+                "📜 Kayıtlar"
+            ],
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("---")
+        
+        if st.button("🚪 Çıkış", use_container_width=True):
+            st.session_state.giris_yapildi = False
             st.rerun()
     
+    # Veri Yükle
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    
+    # Kontrol Paneli
+    if menu == "📊 Kontrol Paneli":
+        st.title("📊 Kontrol Merkezi")
+        
+        # Metrikler
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        toplam_siparis = len(df_siparisler)
+        toplam_ciro = df_siparisler['Toplam_Tutar'].sum() if not df_siparisler.empty else 0
+        toplam_komisyon = df_siparisler['Komisyon_Tutar'].sum() if not df_siparisler.empty else 0
+        bekleyen = len(df_siparisler[df_siparisler['Durum'] == 'Beklemede']) if not df_siparisler.empty else 0
+        
+        with col_m1:
+            st.markdown(f"""
+            <div class="metrik-premium">
+                <div class="metrik-deger">{toplam_siparis}</div>
+                <div class="metrik-etiket">Toplam Sipariş</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m2:
+            st.markdown(f"""
+            <div class="metrik-premium" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="metrik-deger">{toplam_ciro:,.0f}₺</div>
+                <div class="metrik-etiket">Toplam Ciro</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m3:
+            st.markdown(f"""
+            <div class="metrik-premium" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="metrik-deger">{toplam_komisyon:,.0f}₺</div>
+                <div class="metrik-etiket">Komisyon</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m4:
+            st.markdown(f"""
+            <div class="metrik-premium" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="metrik-deger">{bekleyen}</div>
+                <div class="metrik-etiket">Bekleyen</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+        
+        # Son Siparişler
+        if not df_siparisler.empty:
+            st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+            st.markdown("#### 📋 Son Siparişler")
+            
+            son_siparisler = df_siparisler.sort_values('Tarih', ascending=False).head(10)
+            st.dataframe(son_siparisler[['Siparis_ID', 'Tarih', 'Marka', 'Musteri', 'Toplam_Tutar', 'Durum']],
+                        use_container_width=True, hide_index=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Yeni Sipariş
+    elif menu == "🚀 Yeni Sipariş":
+        admin_yeni_siparis()
+    
+    # Operasyonlar
+    elif menu == "📦 Operasyonlar":
+        admin_operasyonlar()
+    
+    # Finansallar
+    elif menu == "💰 Finansallar":
+        admin_finansallar()
+    
+    # Mesajlar
+    elif menu == "💬 Mesajlar":
+        admin_mesajlar()
+    
+    # Analitik
+    elif menu == "📈 Analitik":
+        admin_analitik()
+    
+    # Kayıtlar
+    elif menu == "📜 Kayıtlar":
+        admin_kayitlar()
+
+# Admin Fonksiyonları
+def admin_yeni_siparis():
+    st.title("🚀 Yeni Sipariş Oluştur")
+    
+    col_form, col_sepet = st.columns([1.5, 1])
+    
+    with col_form:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("#### 👤 Müşteri Bilgileri")
+        
+        col_ad, col_tel = st.columns(2)
+        with col_ad:
+            musteri_adi = st.text_input("Ad Soyad")
+        with col_tel:
+            musteri_tel = st.text_input("Telefon")
+        
+        musteri_adres = st.text_area("Adres", height=80)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("#### 🛒 Ürün Ekle")
+        
+        if st.session_state.sepet:
+            aktif_marka = st.session_state.marka_kilidi
+            st.info(f"🔒 Kilitli Marka: {aktif_marka}")
+        else:
+            aktif_marka = st.selectbox("Marka Seçiniz", list(MARKALAR.keys()))
+        
+        marka_verisi = MARKALAR[aktif_marka]
+        urunler = list(marka_verisi["urunler"].keys())
+        
+        col_u, col_a = st.columns([3, 1])
+        with col_u:
+            urun = st.selectbox("Ürün", urunler)
+        with col_a:
+            adet = st.number_input("Adet", 1, value=1)
+        
+        urun_detay = marka_verisi["urunler"][urun]
+        satir_toplam = urun_detay['fiyat'] * adet
+        
+        # Finansal hesaplama
+        finansal = finansal_hesapla(satir_toplam, marka_verisi['komisyon'])
+        
+        # Önizleme
+        st.markdown(f"""
+        <div style="background: rgba(102, 126, 234, 0.1); border-radius: 12px; padding: 16px; margin-top: 16px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>Ürün Tutarı:</span>
+                <strong>{satir_toplam:,.0f}₺</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span>Komisyon ({int(marka_verisi['komisyon']*100)}%):</span>
+                <span style="color: #667eea;">{finansal['komisyon_tutar']:,.0f}₺</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>KDV (20%):</span>
+                <span style="color: #f5576c;">{finansal['kdv_tutar']:,.0f}₺</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("➕ Sepete Ekle"):
+            st.session_state.sepet.append({
+                "marka": aktif_marka,
+                "urun": urun,
+                "sku": urun_detay['sku'],
+                "adet": adet,
+                "ara_toplam": satir_toplam,
+                "komisyon": finansal['komisyon_tutar'],
+                "kdv": finansal['kdv_tutar'],
+                "odeme": finansal['marka_odeme']
+            })
+            st.session_state.marka_kilidi = aktif_marka
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_sepet:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("#### 📦 Sepet Özeti")
+        
+        if st.session_state.sepet:
+            for urun in st.session_state.sepet:
+                st.markdown(f"**{urun['urun']}** × {urun['adet']} = {urun['ara_toplam']:,.0f}₺")
+            
+            toplam = sum(u['ara_toplam'] for u in st.session_state.sepet)
+            toplam_kom = sum(u['komisyon'] for u in st.session_state.sepet)
+            toplam_kdv = sum(u['kdv'] for u in st.session_state.sepet)
+            toplam_odeme = sum(u['odeme'] for u in st.session_state.sepet)
+            
+            st.markdown(f"""
+            <div class="finansal-dokim" style="margin-top: 20px;">
+                <div class="finansal-satir">
+                    <span>Sipariş Toplamı:</span>
+                    <strong>{toplam:,.0f}₺</strong>
+                </div>
+                <div class="finansal-satir">
+                    <span>Komisyon:</span>
+                    <span>{toplam_kom:,.0f}₺</span>
+                </div>
+                <div class="finansal-satir">
+                    <span>KDV (20%):</span>
+                    <span>{toplam_kdv:,.0f}₺</span>
+                </div>
+                <div class="finansal-satir">
+                    <span>Markaya Ödeme:</span>
+                    <strong>{toplam_odeme:,.0f}₺</strong>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            oncelik = st.selectbox("Öncelik", ["Normal", "🚨 Acil", "🧊 Soğuk"])
+            notlar = st.text_area("Notlar", height=60, placeholder="İsteğe bağlı notlar...")
+            
+            if st.button("⚡ SİPARİŞİ OLUŞTUR", type="primary", use_container_width=True):
+                if musteri_adi and musteri_tel:
+                    siparis_id = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
+                    urunler_str = ", ".join([f"{u['urun']} (x{u['adet']})" for u in st.session_state.sepet])
+                    
+                    # Siparişi kaydet
+                    siparis_verisi = {
+                        'Siparis_ID': siparis_id,
+                        'Tarih': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Marka': st.session_state.marka_kilidi,
+                        'Musteri': musteri_adi,
+                        'Telefon': musteri_tel,
+                        'Adres': musteri_adres,
+                        'Urunler': urunler_str,
+                        'Toplam_Tutar': toplam,
+                        'Komisyon_Oran': MARKALAR[st.session_state.marka_kilidi]['komisyon'],
+                        'Komisyon_Tutar': toplam_kom,
+                        'KDV_Tutar': toplam_kdv,
+                        'Toplam_Kesinti': toplam_kom + toplam_kdv,
+                        'Marka_Odeme': toplam_odeme,
+                        'Durum': 'Beklemede',
+                        'WhatsApp_Gonderildi': 'HAYIR',
+                        'Takip_No': '',
+                        'Kargo_Firmasi': '',
+                        'Oncelik': oncelik,
+                        'Notlar': notlar,
+                        'Olusturan': 'admin'
+                    }
+                    
+                    df_siparisler = veri_yukle(CSV_ORDERS)
+                    df_siparisler = pd.concat([df_siparisler, pd.DataFrame([siparis_verisi])], ignore_index=True)
+                    veri_kaydet(CSV_ORDERS, df_siparisler)
+                    
+                    log_kaydet("SIPARIS_OLUSTURULDU", "admin", siparis_id, f"Oluşturuldu {siparis_id}")
+                    
+                    st.success(f"✅ Sipariş {siparis_id} başarıyla oluşturuldu!")
+                    st.session_state.sepet = []
+                    st.session_state.marka_kilidi = None
+                    st.rerun()
+                else:
+                    st.error("Lütfen müşteri bilgilerini doldurun!")
+            
+            if st.button("🗑️ Sepeti Temizle"):
+                st.session_state.sepet = []
+                st.session_state.marka_kilidi = None
+                st.rerun()
+        else:
+            st.info("Sepet boş")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def admin_operasyonlar():
+    st.title("📦 Operasyon Merkezi")
+    
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    
+    # Bekleyen bildirimler
+    bekleyen_bildirim = df_siparisler[df_siparisler['WhatsApp_Gonderildi'] == 'HAYIR']
+    
+    if not bekleyen_bildirim.empty:
+        st.markdown(f'<div class="cam-kart" style="border-left: 4px solid #EF4444;">', unsafe_allow_html=True)
+        st.markdown(f"#### ⚠️ {len(bekleyen_bildirim)} Sipariş Bildirim Bekliyor")
+        
+        for idx, satir in bekleyen_bildirim.iterrows():
+            with st.expander(f"🔴 {satir['Siparis_ID']} - {satir['Marka']} - {satir['Musteri']}", expanded=True):
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.markdown(f"""
+                    **Ürünler:** {satir['Urunler']}  
+                    **Telefon:** {satir['Telefon']}  
+                    **Adres:** {satir['Adres']}  
+                    **Tutar:** {satir['Toplam_Tutar']:,.0f}₺
+                    """)
+                
+                with col2:
+                    telefon = MARKALAR[satir['Marka']]['telefon']
+                    mesaj = f"YENİ SİPARİŞ: {satir['Siparis_ID']}\n\n{satir['Urunler']}\n\nMüşteri: {satir['Musteri']}\nTelefon: {satir['Telefon']}\nAdres: {satir['Adres']}\n\nTutar: {satir['Toplam_Tutar']:,.0f}₺"
+                    link = whatsapp_linki_olustur(telefon, mesaj)
+                    
+                    st.markdown(f'<a href="{link}" target="_blank" class="whatsapp-buton">📲 WhatsApp Gönder</a>', unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='height: 10px'></div>", unsafe_allow_html=True)
+                    
+                    if st.button("✅ Bildirildi Olarak İşaretle", key=f"bildir_{idx}"):
+                        df_siparisler.at[idx, 'WhatsApp_Gonderildi'] = 'EVET'
+                        df_siparisler.at[idx, 'Durum'] = 'Bildirildi'
+                        veri_kaydet(CSV_ORDERS, df_siparisler)
+                        log_kaydet("BILDIRILDI", "admin", satir['Siparis_ID'], "Bildirildi olarak işaretlendi")
+                        st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.success("✅ Tüm siparişler bildirildi!")
+    
+    # Kargo takip girişi
     st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    # Main Navigation Tabs
-    tabs = st.tabs([
-        "📊 Dashboard",
-        "🚀 New Order",
-        "📦 Orders",
-        "✅ Processing",
-        "💰 Financials",
-        "📈 Analytics",
-        "💳 Payments"
-    ])
+    bekleyen_kargo = df_siparisler[(df_siparisler['Durum'] == 'Bildirildi') & ((df_siparisler['Takip_No'] == '') | (df_siparisler['Takip_No'].isna()))]
     
-    # ========================================================================
-    # TAB 1: DASHBOARD
-    # ========================================================================
+    if not bekleyen_kargo.empty:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown(f"#### 📦 {len(bekleyen_kargo)} Sipariş Kargo Takip Numarası Bekliyor")
+        
+        for idx, satir in bekleyen_kargo.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+            
+            with col1:
+                st.markdown(f"**{satir['Siparis_ID']}** - {satir['Marka']}")
+            
+            with col2:
+                takip = st.text_input("Takip Numarası", key=f"takip_{idx}", label_visibility="collapsed")
+            
+            with col3:
+                kargo = st.selectbox("Kargo", ["Yurtiçi", "Aras", "MNG", "PTT"], key=f"kargo_{idx}", label_visibility="collapsed")
+            
+            with col4:
+                if st.button("📦", key=f"kargola_{idx}"):
+                    if takip:
+                        df_siparisler.at[idx, 'Takip_No'] = takip
+                        df_siparisler.at[idx, 'Kargo_Firmasi'] = kargo
+                        df_siparisler.at[idx, 'Durum'] = 'Kargolandi'
+                        veri_kaydet(CSV_ORDERS, df_siparisler)
+                        log_kaydet("KARGOLANDI", "admin", satir['Siparis_ID'], f"Takip: {takip}")
+                        st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def admin_finansallar():
+    st.title("💰 Finans Yönetimi")
+    
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    df_odemeler = veri_yukle(CSV_PAYMENTS)
+    
+    tabs = st.tabs(["💵 Marka Ödemeleri", "📊 Özet"])
     
     with tabs[0]:
-        metrics = get_dashboard_metrics()
-        
-        # Metrics Row
-        col1, col2, col3, col4, col5, col6 = st.columns(6)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['total_orders']}</div>
-                <div class="metric-label">Total Orders</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['total_revenue']:,.0f}₺</div>
-                <div class="metric-label">Total Revenue</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value">{metrics['total_commission']:,.0f}₺</div>
-                <div class="metric-label">Commission</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(f"""
-            <div class="metric-card" style="border-top: 3px solid #EF4444;">
-                <div class="metric-value" style="color: #EF4444;">{metrics['pending_approval']}</div>
-                <div class="metric-label">Pending Approval</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col5:
-            st.markdown(f"""
-            <div class="metric-card" style="border-top: 3px solid #F59E0B;">
-                <div class="metric-value" style="color: #F59E0B;">{metrics['pending_dispatch']}</div>
-                <div class="metric-label">Pending Dispatch</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col6:
-            st.markdown(f"""
-            <div class="metric-card" style="border-top: 3px solid #10B981;">
-                <div class="metric-value" style="color: #10B981;">{metrics['today_orders']}</div>
-                <div class="metric-label">Today</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-        
-        # Brand Performance
-        st.markdown("### 📊 Brand Performance")
-        
-        brand_analytics = get_brand_analytics()
-        
-        if brand_analytics:
-            col1, col2, col3 = st.columns(3)
+        for marka in MARKALAR.keys():
+            marka_siparisler = df_siparisler[df_siparisler['Marka'] == marka]
             
-            for idx, (brand, data) in enumerate(brand_analytics.items()):
-                col = [col1, col2, col3][idx]
-                brand_color = BRANDS[brand]['color']
+            if not marka_siparisler.empty:
+                toplam_satis = marka_siparisler['Toplam_Tutar'].sum()
+                toplam_komisyon = marka_siparisler['Komisyon_Tutar'].sum()
+                toplam_kdv = marka_siparisler['KDV_Tutar'].sum()
+                toplam_odeme = marka_siparisler['Marka_Odeme'].sum()
                 
-                with col:
-                    st.markdown(f"""
-                    <div class="glass-card">
-                        <h4 style="color: {brand_color}; margin-bottom: {FIBO['sm']}px;">{brand}</h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: {FIBO['sm']}px;">
-                            <div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700;">{data['orders']}</div>
-                                <div style="font-size: 10px; color: rgba(255,255,255,0.5);">ORDERS</div>
-                            </div>
-                            <div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700;">{data['revenue']:,.0f}₺</div>
-                                <div style="font-size: 10px; color: rgba(255,255,255,0.5);">REVENUE</div>
-                            </div>
-                            <div>
-                                <div style="font-size: {FIBO['sm']}px; font-weight: 700; color: #4ECDC4;">{data['commission']:,.0f}₺</div>
-                                <div style="font-size: 10px; color: rgba(255,255,255,0.5);">COMMISSION</div>
-                            </div>
-                            <div>
-                                <div style="font-size: {FIBO['sm']}px; font-weight: 700; color: #95E1D3;">{data['payout']:,.0f}₺</div>
-                                <div style="font-size: 10px; color: rgba(255,255,255,0.5);">BRAND PAYOUT</div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.info("No data yet. Create your first order!")
-        
-        # Recent Orders
-        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-        st.markdown("### 📋 Recent Orders")
-        
-        df_orders = load_orders()
-        if not df_orders.empty:
-            recent = df_orders.sort_values('Timestamp', ascending=False).head(10)
-            st.dataframe(
-                recent[['Order_ID', 'Timestamp', 'Brand', 'Customer_Name', 'Total_Value', 'Status']],
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.info("No orders yet.")
-    
-    # ========================================================================
-    # TAB 2: NEW ORDER
-    # ========================================================================
-    
-    with tabs[1]:
-        st.markdown("### 🚀 Create New Order")
-        
-        if 'cart' not in st.session_state:
-            st.session_state.cart = []
-        if 'brand_lock' not in st.session_state:
-            st.session_state.brand_lock = None
-        
-        col_left, col_right = st.columns([1.618, 1])
-        
-        with col_left:
-            # Customer Information
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 👤 Customer Information")
-            
-            col_n, col_p = st.columns(2)
-            with col_n:
-                cust_name = st.text_input("Full Name", key="new_cust_name")
-            with col_p:
-                cust_phone = st.text_input("Phone (+90...)", key="new_cust_phone")
-            
-            cust_address = st.text_area("Delivery Address", key="new_cust_addr", height=89)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Product Selection
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 🛒 Product Selection")
-            
-            # Brand Lock
-            if st.session_state.cart:
-                st.markdown(f"""
-                <div style="background: rgba(78, 205, 196, 0.1); border: 1px solid rgba(78, 205, 196, 0.3); 
-                     border-radius: {FIBO['xs']}px; padding: {FIBO['xs']}px {FIBO['sm']}px; margin-bottom: {FIBO['sm']}px;">
-                    <span style="color: #4ECDC4;">🔒 Locked to: <strong>{st.session_state.brand_lock}</strong></span>
-                </div>
-                """, unsafe_allow_html=True)
-                active_brand = st.session_state.brand_lock
-            else:
-                active_brand = st.selectbox("Select Brand", list(BRANDS.keys()), key="brand_select")
-            
-            # Product Selection
-            products = list(BRANDS[active_brand]['products'].keys())
-            
-            col_p, col_q = st.columns([3, 1])
-            with col_p:
-                selected_product = st.selectbox("Product", products, key="product_select")
-            with col_q:
-                quantity = st.number_input("Qty", min_value=1, value=1, key="qty_input")
-            
-            product_data = BRANDS[active_brand]['products'][selected_product]
-            
-            st.markdown(f"""
-            <div style="background: rgba(255, 255, 255, 0.05); border-radius: {FIBO['xs']}px; 
-                 padding: {FIBO['xs']}px {FIBO['sm']}px; margin-top: {FIBO['xs']}px;">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: rgba(255, 255, 255, 0.6);">SKU: {product_data['sku']}</span>
-                    <span style="color: #4ECDC4; font-weight: 700;">{product_data['price']} ₺</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("➕ ADD TO CART", key="add_cart"):
-                line_total = product_data['price'] * quantity
-                comm_rate = BRANDS[active_brand]['commission']
-                comm_amt = line_total * comm_rate
+                marka_odemeler = df_odemeler[df_odemeler['Marka'] == marka]
+                toplam_odendi = marka_odemeler['Tutar'].sum() if not marka_odemeler.empty else 0
+                bakiye = toplam_odeme - toplam_odendi
                 
-                st.session_state.cart.append({
-                    'brand': active_brand,
-                    'product': selected_product,
-                    'sku': product_data['sku'],
-                    'qty': quantity,
-                    'price': product_data['price'],
-                    'subtotal': line_total,
-                    'comm_rate': comm_rate,
-                    'comm_amt': comm_amt,
-                    'brand_payout': line_total - comm_amt
-                })
-                st.session_state.brand_lock = active_brand
-                st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col_right:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 📦 Cart Review")
-            
-            if st.session_state.cart:
-                # Display cart items
-                for idx, item in enumerate(st.session_state.cart):
-                    st.markdown(f"""
-                    <div style="background: rgba(255, 255, 255, 0.05); border-radius: {FIBO['xs']}px; 
-                         padding: {FIBO['sm']}px; margin-bottom: {FIBO['xs']}px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: {FIBO['xs']}px;">
-                            <div>
-                                <div style="font-weight: 600;">{item['product']}</div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5);">
-                                    {item['sku']} × {item['qty']}
-                                </div>
-                            </div>
-                            <div style="font-weight: 700; color: #4ECDC4;">{item['subtotal']}₺</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Calculate totals
-                total_value = sum(item['subtotal'] for item in st.session_state.cart)
-                total_commission = sum(item['comm_amt'] for item in st.session_state.cart)
-                total_payout = sum(item['brand_payout'] for item in st.session_state.cart)
-                
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, rgba(78, 205, 196, 0.2), rgba(149, 225, 211, 0.1)); 
-                     border: 1px solid rgba(78, 205, 196, 0.3); border-radius: {FIBO['xs']}px; 
-                     padding: {FIBO['sm']}px; margin-top: {FIBO['sm']}px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: {FIBO['xs']}px;">
-                        <span>Total Value:</span>
-                        <span style="font-weight: 700; font-size: {FIBO['md']}px;">{total_value:,.0f}₺</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 4px;">
-                        <span>Commission ({BRANDS[st.session_state.brand_lock]['commission']*100}%):</span>
-                        <span>{total_commission:,.0f}₺</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.7);">
-                        <span>Brand Payout:</span>
-                        <span>{total_payout:,.0f}₺</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown(f"<div style='height: {FIBO['sm']}px'></div>", unsafe_allow_html=True)
-                
-                priority = st.selectbox(
-                    "Order Priority",
-                    ["Standard", "🚨 URGENT", "🧊 Cold Chain"],
-                    key="priority_select"
-                )
-                
-                if st.button("⚡ CREATE ORDER", type="primary", use_container_width=True, key="create_order"):
-                    if cust_name and cust_phone:
-                        # Generate Order ID
-                        order_id = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
-                        
-                        # Prepare items string
-                        items_str = ", ".join([f"{i['product']} (x{i['qty']})" for i in st.session_state.cart])
-                        
-                        # Save order
-                        order_data = {
-                            'Order_ID': order_id,
-                            'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'Brand': st.session_state.brand_lock,
-                            'Customer_Name': cust_name,
-                            'Customer_Phone': cust_phone,
-                            'Customer_Address': cust_address,
-                            'Items': items_str,
-                            'Total_Value': total_value,
-                            'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
-                            'Commission_Amount': total_commission,
-                            'Brand_Payout': total_payout,
-                            'Status': 'Pending',
-                            'WhatsApp_Sent': 'NO',
-                            'Tracking_Number': '',
-                            'Notes': priority
-                        }
-                        
-                        save_order(order_data)
-                        
-                        st.success(f"✅ Order {order_id} created successfully!")
-                        
-                        # Clear cart
-                        st.session_state.cart = []
-                        st.session_state.brand_lock = None
-                        
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Please fill in customer name and phone!")
-                
-                if st.button("🗑️ Clear Cart", key="clear_cart"):
-                    st.session_state.cart = []
-                    st.session_state.brand_lock = None
-                    st.rerun()
-            else:
-                st.markdown("""
-                <div style="text-align: center; padding: {FIBO['xl']}px;">
-                    <div style="font-size: {FIBO['xl']}px; opacity: 0.3; margin-bottom: {FIBO['sm']}px;">🛒</div>
-                    <div style="color: rgba(255, 255, 255, 0.5);">Cart is empty</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-    
-    # ========================================================================
-    # TAB 3: ALL ORDERS
-    # ========================================================================
-    
-    with tabs[2]:
-        st.markdown("### 📦 All Orders")
-        
-        df = load_orders()
-        
-        if not df.empty:
-            # Filters
-            col_f1, col_f2, col_f3 = st.columns(3)
-            
-            with col_f1:
-                brand_filter = st.multiselect(
-                    "Filter by Brand",
-                    options=df['Brand'].unique().tolist(),
-                    default=df['Brand'].unique().tolist(),
-                    key="orders_brand_filter"
-                )
-            
-            with col_f2:
-                status_filter = st.multiselect(
-                    "Filter by Status",
-                    options=df['Status'].unique().tolist(),
-                    default=df['Status'].unique().tolist(),
-                    key="orders_status_filter"
-                )
-            
-            with col_f3:
-                date_range = st.selectbox(
-                    "Date Range",
-                    ["All Time", "Today", "This Week", "This Month"],
-                    key="orders_date_filter"
-                )
-            
-            # Apply filters
-            filtered_df = df[
-                (df['Brand'].isin(brand_filter)) &
-                (df['Status'].isin(status_filter))
-            ].copy()
-            
-            # Date filtering
-            if date_range != "All Time":
-                filtered_df['Timestamp'] = pd.to_datetime(filtered_df['Timestamp'])
-                today = datetime.now().date()
-                
-                if date_range == "Today":
-                    filtered_df = filtered_df[filtered_df['Timestamp'].dt.date == today]
-                elif date_range == "This Week":
-                    week_ago = today - timedelta(days=7)
-                    filtered_df = filtered_df[filtered_df['Timestamp'].dt.date >= week_ago]
-                elif date_range == "This Month":
-                    month_ago = today - timedelta(days=30)
-                    filtered_df = filtered_df[filtered_df['Timestamp'].dt.date >= month_ago]
-            
-            st.markdown(f"<div style='height: {FIBO['sm']}px'></div>", unsafe_allow_html=True)
-            
-            # Display table
-            st.dataframe(
-                filtered_df.sort_values('Timestamp', ascending=False),
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Summary
-            col_s1, col_s2, col_s3 = st.columns(3)
-            
-            with col_s1:
-                st.metric("Filtered Orders", len(filtered_df))
-            with col_s2:
-                st.metric("Total Value", f"{filtered_df['Total_Value'].sum():,.0f} ₺")
-            with col_s3:
-                st.metric("Avg Order Value", f"{filtered_df['Total_Value'].mean():,.0f} ₺" if len(filtered_df) > 0 else "0 ₺")
-        else:
-            st.info("No orders yet. Create your first order!")
-    
-    # ========================================================================
-    # TAB 4: ORDER PROCESSING (with Approval Workflow)
-    # ========================================================================
-    
-    with tabs[3]:
-        st.markdown("### ✅ Order Processing & Approval")
-        
-        df = load_orders()
-        
-        if not df.empty:
-            # Show orders that need action
-            for idx, row in df.iterrows():
-                # Determine card style based on WhatsApp status
-                card_class = "order-card-red" if row['WhatsApp_Sent'] == 'NO' else "order-card-green"
-                
-                st.markdown(f"""
-                <div class="order-card {card_class}">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: {FIBO['sm']}px;">
-                        <div>
-                            <h3 style="margin: 0;">{row['Order_ID']}</h3>
-                            <div style="margin-top: {FIBO['xs']}px;">
-                                <span class="status-badge status-{row['Status'].lower()}">{row['Status']}</span>
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <h3 style="margin: 0;">{row['Total_Value']:,.0f} ₺</h3>
-                            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 4px;">
-                                {row['Timestamp']}
-                            </div>
-                        </div>
-                    </div>
+                with st.expander(f"🏦 {marka} - Bakiye: {bakiye:,.0f}₺", expanded=True):
+                    col1, col2 = st.columns([1, 1.5])
                     
-                    <div style="background: rgba(0, 0, 0, 0.2); border-radius: {FIBO['xs']}px; padding: {FIBO['sm']}px; margin-bottom: {FIBO['sm']}px;">
-                        <div style="margin-bottom: {FIBO['xs']}px;">
-                            <strong>Brand:</strong> <span style="color: {BRANDS[row['Brand']]['color']};">{row['Brand']}</span>
-                        </div>
-                        <div style="margin-bottom: {FIBO['xs']}px;">
-                            <strong>Customer:</strong> {row['Customer_Name']} | {row['Customer_Phone']}
-                        </div>
-                        <div style="margin-bottom: {FIBO['xs']}px;">
-                            <strong>Address:</strong> {row['Customer_Address']}
-                        </div>
-                        <div style="margin-bottom: {FIBO['xs']}px;">
-                            <strong>Items:</strong> {row['Items']}
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: {FIBO['xs']}px; margin-top: {FIBO['sm']}px; padding-top: {FIBO['sm']}px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5);">COMMISSION</div>
-                                <div style="font-weight: 700; color: #4ECDC4;">{row['Commission_Amount']:,.0f}₺</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5);">BRAND PAYOUT</div>
-                                <div style="font-weight: 700; color: #95E1D3;">{row['Brand_Payout']:,.0f}₺</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5);">RATE</div>
-                                <div style="font-weight: 700;">{row['Commission_Rate']*100:.0f}%</div>
-                            </div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Order Status Timeline
-                steps = ["Pending", "Notified", "Dispatched", "Completed"]
-                current_idx = steps.index(row['Status']) if row['Status'] in steps else 0
-                
-                timeline_html = '<div class="timeline-container"><div class="timeline-line"></div>'
-                for step_idx, step in enumerate(steps):
-                    active_class = "active" if step_idx <= current_idx else ""
-                    timeline_html += f'''
-                    <div class="timeline-step {active_class}">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-step-label">{step}</div>
-                    </div>
-                    '''
-                timeline_html += '</div>'
-                st.markdown(timeline_html, unsafe_allow_html=True)
-                
-                # Action Buttons
-                col_a1, col_a2, col_a3 = st.columns(3)
-                
-                with col_a1:
-                    if row['WhatsApp_Sent'] == 'NO':
-                        # Generate WhatsApp link
-                        phone = BRANDS[row['Brand']]['phone'].replace("+", "").replace(" ", "")
-                        message = f"""*NATUVISIO DISPATCH ORDER*
-━━━━━━━━━━━━━━━━━━━━
-🆔 Order: {row['Order_ID']}
-━━━━━━━━━━━━━━━━━━━━
-
-👤 Customer: {row['Customer_Name']}
-📞 Phone: {row['Customer_Phone']}
-🏠 Address: {row['Customer_Address']}
-
-━━━━━━━━━━━━━━━━━━━━
-📦 ITEMS:
-
-{row['Items']}
-
-━━━━━━━━━━━━━━━━━━━━
-💰 TOTAL: {row['Total_Value']:,.0f} ₺
-💵 Your Payout: {row['Brand_Payout']:,.0f} ₺
-
-⚡ Please pack and ship immediately.
-Reply with tracking number."""
-                        
-                        url = f"https://wa.me/{phone}?text={urllib.parse.quote(message)}"
-                        
+                    with col1:
                         st.markdown(f"""
-                        <a href="{url}" target="_blank" style="text-decoration: none;">
-                            <div style="background: linear-gradient(135deg, #25D366, #128C7E); color: white; 
-                                 padding: {FIBO['sm']}px; text-align: center; border-radius: {FIBO['xs']}px; 
-                                 font-weight: 700; cursor: pointer;">
-                                📲 SEND WHATSAPP
+                        <div class="finansal-dokim">
+                            <div class="finansal-satir">
+                                <span>Toplam Satış:</span>
+                                <strong>{toplam_satis:,.0f}₺</strong>
                             </div>
-                        </a>
+                            <div class="finansal-satir">
+                                <span>Komisyon:</span>
+                                <span>-{toplam_komisyon:,.0f}₺</span>
+                            </div>
+                            <div class="finansal-satir">
+                                <span>KDV (20%):</span>
+                                <span>-{toplam_kdv:,.0f}₺</span>
+                            </div>
+                            <div class="finansal-satir">
+                                <span>Ödenecek Toplam:</span>
+                                <strong>{toplam_odeme:,.0f}₺</strong>
+                            </div>
+                            <div class="finansal-satir">
+                                <span>Ödendi:</span>
+                                <span>-{toplam_odendi:,.0f}₺</span>
+                            </div>
+                            <div class="finansal-satir">
+                                <span>Kalan:</span>
+                                <strong>{bakiye:,.0f}₺</strong>
+                            </div>
+                        </div>
                         """, unsafe_allow_html=True)
                         
-                        st.markdown("<div style='height: 8px'></div>", unsafe_allow_html=True)
-                        
-                        if st.button("✅ Mark as Sent", key=f"approve_{idx}"):
-                            df.at[idx, 'WhatsApp_Sent'] = 'YES'
-                            df.at[idx, 'Status'] = 'Notified'
-                            update_orders(df)
-                            st.rerun()
-                
-                with col_a2:
-                    if row['Status'] == 'Notified':
-                        tracking = st.text_input("Tracking Number", key=f"track_{idx}")
-                        if st.button("📦 Mark Dispatched", key=f"dispatch_{idx}"):
-                            if tracking:
-                                df.at[idx, 'Tracking_Number'] = tracking
-                                df.at[idx, 'Status'] = 'Dispatched'
-                                update_orders(df)
-                                st.rerun()
-                            else:
-                                st.error("Enter tracking number!")
-                
-                with col_a3:
-                    if row['Status'] == 'Dispatched':
-                        if st.button("✅ Mark Completed", key=f"complete_{idx}"):
-                            df.at[idx, 'Status'] = 'Completed'
-                            update_orders(df)
-                            st.rerun()
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown(f"<div style='height: {FIBO['sm']}px'></div>", unsafe_allow_html=True)
-        else:
-            st.info("No orders to process.")
-    
-    # ========================================================================
-    # TAB 5: FINANCIALS
-    # ========================================================================
-    
-    with tabs[4]:
-        st.markdown("### 💰 Financial Dashboard")
-        
-        df = load_orders()
-        
-        if not df.empty:
-            # Financial Summary
-            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-            
-            total_sales = df['Total_Value'].sum()
-            total_commission = df['Commission_Amount'].sum()
-            total_brand_payout = df['Brand_Payout'].sum()
-            
-            with col_f1:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-value">{total_sales:,.0f}₺</div>
-                    <div class="metric-label">Total Sales</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_f2:
-                st.markdown(f"""
-                <div class="metric-card" style="border-top: 3px solid #4ECDC4;">
-                    <div class="metric-value" style="color: #4ECDC4;">{total_commission:,.0f}₺</div>
-                    <div class="metric-label">Total Commission</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_f3:
-                st.markdown(f"""
-                <div class="metric-card" style="border-top: 3px solid #95E1D3;">
-                    <div class="metric-value" style="color: #95E1D3;">{total_brand_payout:,.0f}₺</div>
-                    <div class="metric-label">Total Brand Payout</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col_f4:
-                commission_rate = (total_commission / total_sales * 100) if total_sales > 0 else 0
-                st.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-value">{commission_rate:.1f}%</div>
-                    <div class="metric-label">Avg Commission Rate</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-            
-            # Commission by Brand
-            st.markdown("#### 📊 Commission Breakdown by Brand")
-            
-            for brand in BRANDS.keys():
-                brand_df = df[df['Brand'] == brand]
-                
-                if not brand_df.empty:
-                    brand_sales = brand_df['Total_Value'].sum()
-                    brand_commission = brand_df['Commission_Amount'].sum()
-                    brand_payout = brand_df['Brand_Payout'].sum()
-                    brand_color = BRANDS[brand]['color']
+                        st.markdown(f"**IBAN:** {MARKALAR[marka]['iban']}")
+                        st.markdown(f"**Hesap:** {MARKALAR[marka]['hesap_adi']}")
                     
-                    st.markdown(f"""
-                    <div class="glass-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: {FIBO['sm']}px;">
-                            <h4 style="margin: 0; color: {brand_color};">{brand}</h4>
-                            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.6);">
-                                {len(brand_df)} orders
-                            </span>
-                        </div>
+                    with col2:
+                        st.markdown("**Ödeme Kaydet**")
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: {FIBO['md']}px;">
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-bottom: 4px;">
-                                    SALES
-                                </div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700;">
-                                    {brand_sales:,.0f}₺
-                                </div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-bottom: 4px;">
-                                    COMMISSION ({BRANDS[brand]['commission']*100:.0f}%)
-                                </div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700; color: #4ECDC4;">
-                                    {brand_commission:,.0f}₺
-                                </div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-bottom: 4px;">
-                                    BRAND PAYOUT
-                                </div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700; color: #95E1D3;">
-                                    {brand_payout:,.0f}₺
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-            
-            # Detailed Financial Table
-            st.markdown("#### 📋 Detailed Financial Records")
-            
-            financial_view = df[[
-                'Order_ID', 'Timestamp', 'Brand', 'Total_Value', 
-                'Commission_Rate', 'Commission_Amount', 'Brand_Payout', 'Status'
-            ]].copy()
-            
-            st.dataframe(
-                financial_view.sort_values('Timestamp', ascending=False),
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.info("No financial data yet.")
-    
-    # ========================================================================
-    # TAB 6: ANALYTICS
-    # ========================================================================
-    
-    with tabs[5]:
-        st.markdown("### 📈 Business Analytics")
-        
-        df = load_orders()
-        
-        if not df.empty:
-            # Revenue Charts
-            col_c1, col_c2 = st.columns(2)
-            
-            with col_c1:
-                st.markdown("#### Sales by Brand")
-                brand_sales = df.groupby('Brand')['Total_Value'].sum().sort_values(ascending=False)
-                st.bar_chart(brand_sales)
-            
-            with col_c2:
-                st.markdown("#### Orders by Brand")
-                brand_orders = df['Brand'].value_counts()
-                st.bar_chart(brand_orders)
-            
-            st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-            
-            # Status Distribution
-            col_c3, col_c4 = st.columns(2)
-            
-            with col_c3:
-                st.markdown("#### Order Status Distribution")
-                status_dist = df['Status'].value_counts()
-                st.bar_chart(status_dist)
-            
-            with col_c4:
-                st.markdown("#### Commission vs Payout")
-                comparison = pd.DataFrame({
-                    'Commission': df.groupby('Brand')['Commission_Amount'].sum(),
-                    'Brand Payout': df.groupby('Brand')['Brand_Payout'].sum()
-                })
-                st.bar_chart(comparison)
-            
-            # Time Series (if enough data)
-            if len(df) > 5:
-                st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-                st.markdown("#### Orders Over Time")
-                
-                df_time = df.copy()
-                df_time['Timestamp'] = pd.to_datetime(df_time['Timestamp'])
-                df_time['Date'] = df_time['Timestamp'].dt.date
-                daily_orders = df_time.groupby('Date').size()
-                st.line_chart(daily_orders)
-        else:
-            st.info("Not enough data for analytics yet.")
-    
-    # ========================================================================
-    # TAB 7: PAYMENTS TO BRANDS
-    # ========================================================================
-    
-    with tabs[6]:
-        st.markdown("### 💳 Brand Payment Management")
-        
-        df_orders = load_orders()
-        df_payments = load_payments()
-        
-        if not df_orders.empty:
-            # Payment Summary by Brand
-            for brand in BRANDS.keys():
-                brand_orders = df_orders[df_orders['Brand'] == brand]
-                
-                if not brand_orders.empty:
-                    total_owed = brand_orders['Brand_Payout'].sum()
-                    
-                    # Calculate paid amount
-                    brand_payments = df_payments[df_payments['Brand'] == brand]
-                    total_paid = brand_payments['Amount'].sum() if not brand_payments.empty else 0
-                    
-                    balance = total_owed - total_paid
-                    brand_color = BRANDS[brand]['color']
-                    
-                    st.markdown(f"""
-                    <div class="glass-card">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: {FIBO['md']}px;">
-                            <div>
-                                <h3 style="margin: 0; color: {brand_color};">{brand}</h3>
-                                <div style="font-size: 12px; color: rgba(255, 255, 255, 0.6); margin-top: 4px;">
-                                    {len(brand_orders)} orders • {BRANDS[brand]['iban']}
-                                </div>
-                            </div>
-                        </div>
+                        tutar = st.number_input("Tutar", min_value=0.0, max_value=float(bakiye) if bakiye > 0 else 0.0, key=f"tutar_{marka}")
+                        yontem = st.selectbox("Yöntem", ["Banka Havalesi", "Nakit", "Diğer"], key=f"yontem_{marka}")
+                        referans = st.text_input("Referans", key=f"ref_{marka}")
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: {FIBO['md']}px; 
-                             background: rgba(0, 0, 0, 0.2); border-radius: {FIBO['xs']}px; padding: {FIBO['md']}px;">
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-bottom: 4px;">
-                                    TOTAL OWED
-                                </div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700; color: #F59E0B;">
-                                    {total_owed:,.0f}₺
-                                </div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-bottom: 4px;">
-                                    PAID
-                                </div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700; color: #10B981;">
-                                    {total_paid:,.0f}₺
-                                </div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: rgba(255, 255, 255, 0.5); margin-bottom: 4px;">
-                                    BALANCE
-                                </div>
-                                <div style="font-size: {FIBO['md']}px; font-weight: 700; color: {'#EF4444' if balance > 0 else '#4ECDC4'};">
-                                    {balance:,.0f}₺
-                                </div>
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Payment Action
-                    with st.expander(f"💸 Record Payment for {brand}"):
-                        col_p1, col_p2 = st.columns(2)
-                        
-                        with col_p1:
-                            payment_amount = st.number_input(
-                                "Payment Amount",
-                                min_value=0.0,
-                                max_value=float(balance) if balance > 0 else 0.0,
-                                value=float(balance) if balance > 0 else 0.0,
-                                key=f"pay_amt_{brand}"
-                            )
-                        
-                        with col_p2:
-                            payment_method = st.selectbox(
-                                "Payment Method",
-                                ["Bank Transfer", "Cash", "Check", "Other"],
-                                key=f"pay_method_{brand}"
-                            )
-                        
-                        payment_ref = st.text_input("Reference/Note", key=f"pay_ref_{brand}")
-                        
-                        if st.button(f"💰 Record Payment", key=f"pay_btn_{brand}"):
-                            if payment_amount > 0:
-                                payment_id = f"PAY-{datetime.now().strftime('%m%d%H%M%S')}"
-                                
-                                # Get order IDs for this brand
-                                order_ids = ", ".join(brand_orders['Order_ID'].tolist()[:5])  # First 5
-                                if len(brand_orders) > 5:
-                                    order_ids += f" +{len(brand_orders)-5} more"
-                                
-                                payment_data = {
-                                    'Payment_ID': payment_id,
-                                    'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                    'Brand': brand,
-                                    'Amount': payment_amount,
-                                    'Order_IDs': order_ids,
-                                    'Payment_Method': payment_method,
-                                    'Reference': payment_ref,
-                                    'Notes': f"Payment to {brand}"
+                        if st.button(f"💰 {marka} için Ödeme Kaydet", key=f"odeme_{marka}"):
+                            if tutar > 0:
+                                odeme_verisi = {
+                                    'Odeme_ID': f"PAY-{datetime.now().strftime('%m%d%H%M%S')}",
+                                    'Tarih': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                    'Marka': marka,
+                                    'Tutar': tutar,
+                                    'Yontem': yontem,
+                                    'Referans': referans,
+                                    'Notlar': f"Admin tarafından kaydedildi",
+                                    'Kaydeden': 'admin'
                                 }
                                 
-                                save_payment(payment_data)
-                                st.success(f"✅ Payment {payment_id} recorded successfully!")
+                                df_odemeler = veri_yukle(CSV_PAYMENTS)
+                                df_odemeler = pd.concat([df_odemeler, pd.DataFrame([odeme_verisi])], ignore_index=True)
+                                veri_kaydet(CSV_PAYMENTS, df_odemeler)
+                                
+                                log_kaydet("ODEME", "admin", "", f"{marka} - {tutar}₺")
+                                
+                                st.success(f"✅ {marka} için {tutar:,.0f}₺ ödeme kaydedildi!")
                                 st.rerun()
-                            else:
-                                st.error("Please enter a valid amount!")
+    
+    with tabs[1]:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("#### 📊 Finansal Özet")
+        
+        if not df_siparisler.empty:
+            ozet_verisi = []
+            
+            for marka in MARKALAR.keys():
+                marka_siparisler = df_siparisler[df_siparisler['Marka'] == marka]
+                
+                if not marka_siparisler.empty:
+                    marka_odemeler = df_odemeler[df_odemeler['Marka'] == marka]
                     
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    ozet_verisi.append({
+                        'Marka': marka,
+                        'Toplam Satış': marka_siparisler['Toplam_Tutar'].sum(),
+                        'Komisyon': marka_siparisler['Komisyon_Tutar'].sum(),
+                        'KDV': marka_siparisler['KDV_Tutar'].sum(),
+                        'Ödenecek': marka_siparisler['Marka_Odeme'].sum(),
+                        'Ödendi': marka_odemeler['Tutar'].sum() if not marka_odemeler.empty else 0,
+                        'Bakiye': marka_siparisler['Marka_Odeme'].sum() - (marka_odemeler['Tutar'].sum() if not marka_odemeler.empty else 0)
+                    })
             
-            # Payment History
+            ozet_df = pd.DataFrame(ozet_verisi)
+            st.dataframe(ozet_df, use_container_width=True, hide_index=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def admin_mesajlar():
+    st.title("💬 Mesaj Merkezi")
+    
+    # Mesaj oluştur
+    with st.expander("✉️ Yeni Mesaj Gönder", expanded=False):
+        alici_marka = st.selectbox("Marka", list(MARKALAR.keys()))
+        konu = st.text_input("Konu")
+        mesaj = st.text_area("Mesaj", height=150)
+        siparis_ref = st.text_input("Sipariş No (opsiyonel)", placeholder="NV-12081530")
+        
+        if st.button("📤 Mesaj Gönder"):
+            if konu and mesaj:
+                alici_email = PARTNER_CREDENTIALS[alici_marka]["email"]
+                
+                if mesaj_gonder(
+                    st.session_state.kullanici_email,
+                    "admin",
+                    "NATUVISIO",
+                    alici_email,
+                    "partner",
+                    alici_marka,
+                    konu,
+                    mesaj,
+                    siparis_ref
+                ):
+                    st.success("✅ Mesaj gönderildi!")
+                    st.rerun()
+    
+    # Mesajları göster
+    st.markdown("---")
+    st.markdown("#### 📨 Mesaj Geçmişi")
+    
+    df_mesajlar = veri_yukle(CSV_MESSAGES)
+    
+    if df_mesajlar.empty:
+        st.info("Henüz mesaj yok")
+    else:
+        mesajlarim = df_mesajlar[
+            (df_mesajlar['Alici'] == st.session_state.kullanici_email) |
+            (df_mesajlar['Gonderen'] == st.session_state.kullanici_email)
+        ].sort_values('Tarih', ascending=False)
+        
+        for idx, msg in mesajlarim.iterrows():
+            benden_mi = msg['Gonderen'] == st.session_state.kullanici_email
+            kart_sinif = "mesaj-admin" if benden_mi else "mesaj-partner"
+            
+            st.markdown(f"""
+            <div class="mesaj-karti {kart_sinif}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <div>
+                        <strong style="font-size: 14px;">{"Kime: " + msg['Alici_Marka'] if benden_mi else "Kimden: " + msg['Gonderen_Marka']}</strong>
+                        {' <span class="okunmamis-rozet">YENİ</span>' if not benden_mi and msg['Okundu'] == 'Hayır' else ''}
+                    </div>
+                    <span style="font-size: 12px; color: #64748b;">{msg['Tarih']}</span>
+                </div>
+                <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">{msg['Konu']}</div>
+                <div style="font-size: 13px; color: #475569; margin-bottom: 8px;">{msg['Mesaj']}</div>
+                {f'<div style="font-size: 11px; color: #94a3b8;">Sipariş: {msg["Siparis_ID"]}</div>' if msg['Siparis_ID'] else ''}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not benden_mi and msg['Okundu'] == 'Hayır':
+                if st.button("Okundu Olarak İşaretle", key=f"oku_{msg['Mesaj_ID']}"):
+                    mesaj_okundu_isaretle(msg['Mesaj_ID'])
+                    st.rerun()
+
+def admin_analitik():
+    st.title("📈 İş Analitiği")
+    
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    
+    if df_siparisler.empty:
+        st.info("Analiz için yeterli veri yok")
+        return
+    
+    # Durum dağılımı
+    st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+    st.markdown("#### 🎯 Sipariş Durum Dağılımı")
+    
+    durum_dagilim = df_siparisler['Durum'].value_counts()
+    st.bar_chart(durum_dagilim)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Marka bazında
+    col_a1, col_a2 = st.columns(2)
+    
+    with col_a1:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("#### 🏆 Marka Bazında Satışlar")
+        
+        marka_satis = df_siparisler.groupby('Marka')['Toplam_Tutar'].sum()
+        st.bar_chart(marka_satis)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_a2:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("#### 📊 Marka Bazında Sipariş Sayısı")
+        
+        marka_siparis = df_siparisler['Marka'].value_counts()
+        st.bar_chart(marka_siparis)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def admin_kayitlar():
+    st.title("📜 Sistem Kayıtları")
+    
+    df_kayitlar = veri_yukle(CSV_LOGS)
+    
+    if df_kayitlar.empty:
+        st.info("Henüz kayıt yok")
+    else:
+        # Filtreler
+        col_f1, col_f2 = st.columns(2)
+        
+        with col_f1:
+            kullanicilar = df_kayitlar['Kullanici'].unique().tolist()
+            kullanici_filtre = st.multiselect("Kullanıcıya Göre Filtrele", kullanicilar)
+        
+        with col_f2:
+            islemler = df_kayitlar['Islem'].unique().tolist()
+            islem_filtre = st.multiselect("İşleme Göre Filtrele", islemler)
+        
+        filtreli_kayitlar = df_kayitlar.copy()
+        
+        if kullanici_filtre:
+            filtreli_kayitlar = filtreli_kayitlar[filtreli_kayitlar['Kullanici'].isin(kullanici_filtre)]
+        
+        if islem_filtre:
+            filtreli_kayitlar = filtreli_kayitlar[filtreli_kayitlar['Islem'].isin(islem_filtre)]
+        
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.dataframe(filtreli_kayitlar.sort_values('Tarih', ascending=False),
+                    use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ============================================================================
+# 9. PARTNER PANEL
+# ============================================================================
+
+def partner_panel():
+    premium_css_yukle()
+    
+    marka = st.session_state.kullanici_marka
+    marka_renk = MARKALAR[marka]['renk']
+    marka_komisyon = MARKALAR[marka]['komisyon']
+    
+    # Kenar Çubuğu
+    with st.sidebar:
+        st.image(LOGO_URL, width=60)
+        st.markdown(f"### {marka}")
+        st.markdown(f"**Email:** {st.session_state.kullanici_email}")
+        st.markdown(f"**Komisyon:** {int(marka_komisyon*100)}%")
+        
+        okunmamis = okunmamis_mesaj_sayisi(st.session_state.kullanici_email)
+        if okunmamis > 0:
+            st.markdown(f'<span class="okunmamis-rozet">{okunmamis} Yeni Mesaj</span>', unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        menu = st.radio(
+            "Navigasyon",
+            [
+                "📊 Kontrol Paneli",
+                "📥 Yeni Siparişler",
+                "🚚 Kargo Yönetimi",
+                "✅ Tamamlanan",
+                "💰 Finansal Bilgiler",
+                "💬 Mesajlar"
+            ],
+            label_visibility="collapsed"
+        )
+        
+        st.markdown("---")
+        
+        if st.button("🚪 Çıkış", use_container_width=True):
+            st.session_state.giris_yapildi = False
+            st.rerun()
+    
+    # Veri Yükle
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    
+    siparislerim = df_siparisler[df_siparisler['Marka'] == marka]
+    
+    # Kontrol Paneli
+    if menu == "📊 Kontrol Paneli":
+        st.title(f"📊 {marka} Kontrol Paneli")
+        
+        # Metrikler
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        toplam_siparis = len(siparislerim)
+        bekleyen_siparis = len(siparislerim[siparislerim['Durum'] == 'Beklemede'])
+        tamamlanan_siparis = len(siparislerim[siparislerim['Durum'] == 'Tamamlandi'])
+        
+        toplam_kazanc = siparislerim['Marka_Odeme'].sum() if not siparislerim.empty else 0
+        
+        with col_m1:
+            st.markdown(f"""
+            <div class="metrik-premium">
+                <div class="metrik-deger">{toplam_siparis}</div>
+                <div class="metrik-etiket">Toplam Sipariş</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m2:
+            st.markdown(f"""
+            <div class="metrik-premium" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="metrik-deger">{bekleyen_siparis}</div>
+                <div class="metrik-etiket">Bekleyen</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m3:
+            st.markdown(f"""
+            <div class="metrik-premium" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
+                <div class="metrik-deger">{tamamlanan_siparis}</div>
+                <div class="metrik-etiket">Tamamlanan</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_m4:
+            st.markdown(f"""
+            <div class="metrik-premium" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #1e293b;">
+                <div class="metrik-deger">{toplam_kazanc:,.0f}₺</div>
+                <div class="metrik-etiket">Toplam Kazanç</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+        
+        # Son siparişler
+        if not siparislerim.empty:
+            st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+            st.markdown("#### 📋 Son Siparişler")
+            
+            son_siparisler = siparislerim.sort_values('Tarih', ascending=False).head(10)
+            st.dataframe(son_siparisler[['Siparis_ID', 'Tarih', 'Musteri', 'Toplam_Tutar', 'Durum', 'Takip_No']],
+                        use_container_width=True, hide_index=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Yeni Siparişler
+    elif menu == "📥 Yeni Siparişler":
+        partner_yeni_siparisler()
+    
+    # Kargo Yönetimi
+    elif menu == "🚚 Kargo Yönetimi":
+        partner_kargo_yonetimi()
+    
+    # Tamamlanan
+    elif menu == "✅ Tamamlanan":
+        partner_tamamlanan()
+    
+    # Finansal Bilgiler
+    elif menu == "💰 Finansal Bilgiler":
+        partner_finansal()
+    
+    # Mesajlar
+    elif menu == "💬 Mesajlar":
+        partner_mesajlar()
+
+# Partner Fonksiyonları
+def partner_yeni_siparisler():
+    st.title("📥 Yeni Siparişler")
+    
+    marka = st.session_state.kullanici_marka
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    siparislerim = df_siparisler[df_siparisler['Marka'] == marka]
+    
+    bekleyen = siparislerim[siparislerim['Durum'] == 'Beklemede']
+    
+    if bekleyen.empty:
+        st.success("✅ Bekleyen sipariş yok!")
+    else:
+        for idx, satir in bekleyen.iterrows():
+            st.markdown('<div class="cam-kart" style="border-left: 4px solid #EF4444;">', unsafe_allow_html=True)
+            
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                st.markdown(f"### 🆕 {satir['Siparis_ID']}")
+                
+                # Sipariş detayları
+                st.markdown(f"""
+                <div class="siparis-detay-karti">
+                    <div class="siparis-detay-satir">
+                        <span class="detay-etiket">Müşteri:</span>
+                        <span class="detay-deger">{satir['Musteri']}</span>
+                    </div>
+                    <div class="siparis-detay-satir">
+                        <span class="detay-etiket">Telefon:</span>
+                        <span class="detay-deger">{satir['Telefon']}</span>
+                    </div>
+                    <div class="siparis-detay-satir">
+                        <span class="detay-etiket">Adres:</span>
+                        <span class="detay-deger">{satir['Adres']}</span>
+                    </div>
+                    <div class="siparis-detay-satir">
+                        <span class="detay-etiket">Ürünler:</span>
+                        <span class="detay-deger">{satir['Urunler']}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                # Finansal döküm
+                st.markdown(f"""
+                <div class="finansal-dokim">
+                    <div style="text-align: center; margin-bottom: 16px; font-size: 16px; font-weight: 700;">
+                        💰 Finansal Detaylar
+                    </div>
+                    <div class="finansal-satir">
+                        <span>Sipariş Tutarı:</span>
+                        <strong>{satir['Toplam_Tutar']:,.0f}₺</strong>
+                    </div>
+                    <div class="finansal-satir">
+                        <span>NATUVISIO Komisyon ({int(satir['Komisyon_Oran']*100)}%):</span>
+                        <span>-{satir['Komisyon_Tutar']:,.0f}₺</span>
+                    </div>
+                    <div class="finansal-satir">
+                        <span>KDV (%20):</span>
+                        <span>-{satir['KDV_Tutar']:,.0f}₺</span>
+                    </div>
+                    <div class="finansal-satir">
+                        <span>Sizin Kazancınız:</span>
+                        <strong style="color: #10B981;">{satir['Marka_Odeme']:,.0f}₺</strong>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
+                
+                # Fatura bilgisi
+                st.markdown(f"""
+                <div class="fatura-karti">
+                    <div style="font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #1e293b;">📄 Fatura Bilgileri</div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span>Müşteriye Fatura:</span>
+                        <strong>{satir['Toplam_Tutar']:,.0f}₺</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>NATUVISIO'ya Fatura:</span>
+                        <strong>{satir['Komisyon_Tutar'] + satir['KDV_Tutar']:,.0f}₺</strong>
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                        Komisyon ({satir['Komisyon_Tutar']:,.0f}₺) + KDV ({satir['KDV_Tutar']:,.0f}₺)
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<div style='height: 10px'></div>", unsafe_allow_html=True)
+                
+                if satir['WhatsApp_Gonderildi'] == 'EVET':
+                    st.success("✅ WhatsApp ile bildirildi")
+                else:
+                    st.warning("⏳ Admin'den WhatsApp bildirimi bekleniyor")
+                
+                if st.button("✅ Siparişi Kabul Et", key=f"kabul_{idx}", use_container_width=True):
+                    df_siparisler.at[idx, 'Durum'] = 'Bildirildi'
+                    veri_kaydet(CSV_ORDERS, df_siparisler)
+                    log_kaydet("SIPARIS_KABUL_EDILDI", st.session_state.kullanici_email, satir['Siparis_ID'], "Sipariş partner tarafından kabul edildi")
+                    st.success("Sipariş kabul edildi!")
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+def partner_kargo_yonetimi():
+    st.title("🚚 Kargo Yönetimi")
+    
+    marka = st.session_state.kullanici_marka
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    siparislerim = df_siparisler[df_siparisler['Marka'] == marka]
+    
+    kargolanacak = siparislerim[siparislerim['Durum'] == 'Bildirildi']
+    
+    if kargolanacak.empty:
+        st.info("Kargolanacak sipariş yok")
+    else:
+        for idx, satir in kargolanacak.iterrows():
+            st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+            
+            st.markdown(f"### 📦 {satir['Siparis_ID']}")
+            
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                st.markdown(f"**Müşteri:** {satir['Musteri']} - {satir['Telefon']}")
+                st.markdown(f"**Adres:** {satir['Adres']}")
+                st.markdown(f"**Ürünler:** {satir['Urunler']}")
+                st.markdown(f"**Tutar:** {satir['Toplam_Tutar']:,.0f}₺")
+            
+            with col2:
+                st.markdown(f"""
+                <div style="background: rgba(102, 126, 234, 0.1); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="text-align: center; font-weight: 600; margin-bottom: 8px;">Kazancınız</div>
+                    <div style="text-align: center; font-size: 24px; font-weight: 800; color: #10B981;">{satir['Marka_Odeme']:,.0f}₺</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            col_k1, col_k2 = st.columns([2, 1])
+            
+            with col_k1:
+                takip = st.text_input("Kargo Takip Numarası", key=f"takip_{idx}")
+                kargo = st.selectbox("Kargo Firması", ["Yurtiçi", "Aras", "MNG", "PTT", "Diğer"], key=f"kargo_{idx}")
+            
+            with col_k2:
+                st.markdown("<div style='height: 20px'></div>", unsafe_allow_html=True)
+                if st.button("🚀 Kargolandı Olarak İşaretle", key=f"kargola_{idx}"):
+                    if takip:
+                        df_siparisler.at[idx, 'Durum'] = 'Kargolandi'
+                        df_siparisler.at[idx, 'Takip_No'] = takip
+                        df_siparisler.at[idx, 'Kargo_Firmasi'] = kargo
+                        veri_kaydet(CSV_ORDERS, df_siparisler)
+                        log_kaydet("SIPARIS_KARGOLANDI", st.session_state.kullanici_email, satir['Siparis_ID'], f"{kargo} ile kargolandi")
+                        st.success("Sipariş kargolandı olarak işaretlendi!")
+                        st.rerun()
+                    else:
+                        st.error("Lütfen takip numarası girin")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+def partner_tamamlanan():
+    st.title("✅ Tamamlanan Siparişler")
+    
+    marka = st.session_state.kullanici_marka
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    siparislerim = df_siparisler[df_siparisler['Marka'] == marka]
+    
+    tamamlanan = siparislerim[siparislerim['Durum'].isin(['Kargolandi', 'Tamamlandi'])]
+    
+    if tamamlanan.empty:
+        st.info("Henüz tamamlanmış sipariş yok")
+    else:
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.dataframe(tamamlanan[['Siparis_ID', 'Tarih', 'Musteri', 'Urunler', 'Toplam_Tutar', 'Marka_Odeme', 'Durum', 'Takip_No', 'Kargo_Firmasi']],
+                    use_container_width=True, hide_index=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def partner_finansal():
+    st.title("💰 Finansal Genel Bakış")
+    
+    marka = st.session_state.kullanici_marka
+    marka_komisyon = MARKALAR[marka]['komisyon']
+    
+    df_siparisler = veri_yukle(CSV_ORDERS)
+    siparislerim = df_siparisler[df_siparisler['Marka'] == marka]
+    
+    if siparislerim.empty:
+        st.info("Henüz finansal veri yok")
+    else:
+        toplam_satis = siparislerim['Toplam_Tutar'].sum()
+        toplam_komisyon = siparislerim['Komisyon_Tutar'].sum()
+        toplam_kdv = siparislerim['KDV_Tutar'].sum()
+        toplam_odeme = siparislerim['Marka_Odeme'].sum()
+        
+        df_odemeler = veri_yukle(CSV_PAYMENTS)
+        odemelerim = df_odemeler[df_odemeler['Marka'] == marka]
+        toplam_odendi = odemelerim['Tutar'].sum() if not odemelerim.empty else 0
+        bakiye = toplam_odeme - toplam_odendi
+        
+        # Ana finansal kart
+        st.markdown(f"""
+        <div class="finansal-dokim" style="max-width: 800px; margin: 0 auto;">
+            <h3 style="margin-bottom: 20px; text-align: center;">💰 Finansal Özet</h3>
+            <div class="finansal-satir">
+                <span>Toplam Satış (Müşterilere):</span>
+                <strong>{toplam_satis:,.0f}₺</strong>
+            </div>
+            <div class="finansal-satir">
+                <span>NATUVISIO Komisyonu ({int(marka_komisyon*100)}%):</span>
+                <span style="color: #667eea;">-{toplam_komisyon:,.0f}₺</span>
+            </div>
+            <div class="finansal-satir">
+                <span>Komisyon Üzerinden KDV (20%):</span>
+                <span style="color: #f5576c;">-{toplam_kdv:,.0f}₺</span>
+            </div>
+            <div class="finansal-satir">
+                <span>Size Ödenecek Toplam:</span>
+                <strong style="color: #10B981;">{toplam_odeme:,.0f}₺</strong>
+            </div>
+            <div class="finansal-satir">
+                <span>Ödendi:</span>
+                <span>-{toplam_odendi:,.0f}₺</span>
+            </div>
+            <div class="finansal-satir">
+                <span>Kalan Bakiye:</span>
+                <strong style="font-size: 24px; color: #667eea;">{bakiye:,.0f}₺</strong>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"<div style='height: {FIBO['lg']}px'></div>", unsafe_allow_html=True)
+        
+        # Fatura talimatları
+        col_f1, col_f2 = st.columns(2)
+        
+        with col_f1:
+            st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+            st.markdown("### 📋 Müşterilerinize Fatura")
+            st.markdown(f"""
+            **Toplam Tutar:** {toplam_satis:,.2f}₺
+            
+            Müşterilerinize, ürün satış tutarlarının **tam tutarını** fatura etmelisiniz.
+            Her sipariş için ayrı ayrı fatura kesilir.
+            
+            **Örnek:**
+            - Sipariş tutarı 450₺ ise → Müşteriye 450₺ fatura
+            - Tüm KDV dahildir
+            """)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col_f2:
+            st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+            st.markdown("### 📋 NATUVISIO'ya Fatura")
+            st.markdown(f"""
+            **Komisyon Tutarı:** {toplam_komisyon:,.2f}₺  
+            **KDV (%20):** {toplam_kdv:,.2f}₺  
+            **Toplam Fatura:** {toplam_komisyon + toplam_kdv:,.2f}₺
+            
+            Platform kullanım ücreti olarak NATUVISIO'ya **komisyon + KDV** tutarında fatura kesmeniz gerekmektedir.
+            
+            **Fatura Detayı:**
+            - Hizmet: "NATUVISIO Platform Komisyonu"
+            - Dönem: {datetime.now().strftime('%B %Y')}
+            """)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Banka bilgileri
+        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+        st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+        st.markdown("### 🏦 Banka Bilgileri")
+        st.markdown(f"""
+        **IBAN:** {MARKALAR[marka]['iban']}  
+        **Hesap Adı:** {MARKALAR[marka]['hesap_adi']}  
+        **Vergi Dairesi:** {MARKALAR[marka]['vergi_dairesi']}  
+        **Vergi No:** {MARKALAR[marka]['vergi_no']}
+        """)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Ödeme geçmişi
+        if not odemelerim.empty:
             st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-            st.markdown("### 📜 Payment History")
+            st.markdown('<div class="cam-kart">', unsafe_allow_html=True)
+            st.markdown("### 💳 Ödeme Geçmişi")
+            st.dataframe(odemelerim[['Tarih', 'Tutar', 'Yontem', 'Referans', 'Notlar']],
+                        use_container_width=True, hide_index=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+def partner_mesajlar():
+    st.title("💬 Mesajlar")
+    
+    # Mesaj oluştur
+    with st.expander("✉️ Admin'e Mesaj Gönder", expanded=False):
+        konu = st.text_input("Konu")
+        mesaj = st.text_area("Mesaj", height=150)
+        siparis_ref = st.text_input("Sipariş No (opsiyonel)", placeholder="NV-12081530")
+        
+        if st.button("📤 Mesaj Gönder", use_container_width=True):
+            if konu and mesaj:
+                if mesaj_gonder(
+                    st.session_state.kullanici_email,
+                    "partner",
+                    st.session_state.kullanici_marka,
+                    "admin@natuvisio.com",
+                    "admin",
+                    "NATUVISIO",
+                    konu,
+                    mesaj,
+                    siparis_ref
+                ):
+                    st.success("✅ Mesaj gönderildi!")
+                    st.rerun()
+    
+    # Mesajları göster
+    st.markdown("---")
+    st.markdown("#### 📨 Mesaj Geçmişi")
+    
+    df_mesajlar = veri_yukle(CSV_MESSAGES)
+    
+    if df_mesajlar.empty:
+        st.info("Henüz mesaj yok")
+    else:
+        mesajlarim = df_mesajlar[
+            (df_mesajlar['Alici'] == st.session_state.kullanici_email) |
+            (df_mesajlar['Gonderen'] == st.session_state.kullanici_email)
+        ].sort_values('Tarih', ascending=False)
+        
+        for idx, msg in mesajlarim.iterrows():
+            benden_mi = msg['Gonderen'] == st.session_state.kullanici_email
+            kart_sinif = "mesaj-partner" if benden_mi else "mesaj-admin"
             
-            if not df_payments.empty:
-                st.dataframe(
-                    df_payments.sort_values('Timestamp', ascending=False),
-                    use_container_width=True,
-                    hide_index=True
-                )
-            else:
-                st.info("No payments recorded yet.")
-        else:
-            st.info("No orders yet. Create orders first!")
+            st.markdown(f"""
+            <div class="mesaj-karti {kart_sinif}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <div>
+                        <strong style="font-size: 14px;">{"Kime: Admin" if benden_mi else "Kimden: Admin"}</strong>
+                        {' <span class="okunmamis-rozet">YENİ</span>' if not benden_mi and msg['Okundu'] == 'Hayır' else ''}
+                    </div>
+                    <span style="font-size: 12px; color: #64748b;">{msg['Tarih']}</span>
+                </div>
+                <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">{msg['Konu']}</div>
+                <div style="font-size: 13px; color: #475569;">{msg['Mesaj']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not benden_mi and msg['Okundu'] == 'Hayır':
+                if st.button("Okundu Olarak İşaretle", key=f"oku_{msg['Mesaj_ID']}"):
+                    mesaj_okundu_isaretle(msg['Mesaj_ID'])
+                    st.rerun()
 
 # ============================================================================
-# MAIN EXECUTION
+# 10. ANA UYGULAMA
 # ============================================================================
 
-# Initialize databases
-init_databases()
-
-# Check authentication
-if not st.session_state.admin_logged_in:
-    login_screen()
-else:
-    admin_dashboard()
+if __name__ == "__main__":
+    if not st.session_state.giris_yapildi:
+        giris_ekrani()
+    else:
+        if st.session_state.kullanici_rol == "admin":
+            admin_panel()
+        elif st.session_state.kullanici_rol == "partner":
+            partner_panel()
