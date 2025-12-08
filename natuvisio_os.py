@@ -289,7 +289,7 @@ def admin_dashboard():
         
         m1, m2, m3, m4 = st.columns(4)
         with m1: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{len(df_disp)}</div><div class='metric-label'>TOPLAM SİPARİŞ</div></div>", unsafe_allow_html=True)
-        with m2: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{total_rev:,.0f}₺</div><div class="metric-label">TOPLAM CİRO</div></div>", unsafe_allow_html=True)
+        with m2: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{total_rev:,.0f}₺</div><div class='metric-label'>TOPLAM CİRO</div></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#2f855a;'>{total_comm:,.0f}₺</div><div class='metric-label'>KOMİSYON GELİRİ</div></div>", unsafe_allow_html=True)
         with m4: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#c53030;'>{pending_ops}</div><div class='metric-label'>BEKLEYEN İŞLEM</div></div>", unsafe_allow_html=True)
 
@@ -655,4 +655,4 @@ if __name__ == "__main__":
     elif st.session_state.is_partner_logged_in:
         partner_dashboard()
     else:
-        login_screen()
+        login_view()
