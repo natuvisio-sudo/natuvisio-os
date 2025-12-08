@@ -5,54 +5,52 @@ import os
 import io
 from datetime import datetime, timedelta
 import urllib.parse
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 # ============================================================================
-# 🏔️ NATUVISIO ULTIMATE PLATFORM v9.0
-# Complete Enterprise System with Messaging, Financial Transparency & Premium UI
+# 🏔️ NATUVISIO MULTI-USER SYSTEM v8.0
+# Complete Role-Based Platform: Admin | Partners | Dietitian
+# Dependencies: streamlit, pandas, numpy ONLY
 # ============================================================================
 
 st.set_page_config(
     page_title="NATUVISIO Platform",
     page_icon="🏔️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ============================================================================
 # 1. CONFIGURATION
 # ============================================================================
 
-# Credentials
+# Passwords
 ADMIN_PASS = "admin2025"
-PARTNER_CREDENTIALS = {
-    "HAKI HEAL": {"email": "hakiheal@natuvisio.com", "password": "Hakiheal2025**"},
-    "AURORACO": {"email": "auroraco@natuvisio.com", "password": "Auroraco**"},
-    "LONGEVICALS": {"email": "longevicals@natuvisio.com", "password": "Longevicals2025"}
+USER_CREDENTIALS = {
+    "hakiheal@natuvisio.com": {"password": "Hakiheal2025**", "role": "partner", "brand": "HAKI HEAL"},
+    "auroraco@natuvisio.com": {"password": "Auroraco**", "role": "partner", "brand": "AURORACO"},
+    "juliana@natuvisio.com": {"password": "Juliana2025.", "role": "dietitian", "brand": "DRJULIANA"}
 }
 
-# File paths
-CSV_ORDERS = "orders_master.csv"
-CSV_FINANCE = "financial_ledger.csv"
+# Files
+CSV_ORDERS = "orders_complete.csv"
 CSV_PAYMENTS = "brand_payments.csv"
-CSV_MESSAGES = "messages.csv"
 CSV_LOGS = "system_logs.csv"
+CSV_PARTNERS = "partners.csv"
+CSV_MESSAGES = "messages.csv"
+CSV_STOCK = "stock_inventory.csv"
 
-# Business constants
-KDV_RATE = 0.20  # 20% VAT
-PHI = 1.618  # Golden ratio
+PHI = 1.618
 FIBO = {'xs': 8, 'sm': 13, 'md': 21, 'lg': 34, 'xl': 55}
 
-# Brand configurations
+LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v1764805291/natuvisio_logo_gtqtfs.png"
+BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
+
 BRANDS = {
     "HAKI HEAL": {
         "phone": "601158976276",
         "color": "#4ECDC4",
         "commission": 0.15,
         "iban": "TR90 0006 1000 0000 1234 5678 90",
-        "account_name": "Haki Heal Ltd. Şti.",
         "products": {
             "HAKI HEAL KREM": {"sku": "SKU-HAKI-CRM-01", "price": 450},
             "HAKI HEAL VÜCUT LOSYONU": {"sku": "SKU-HAKI-BODY-01", "price": 380},
@@ -64,7 +62,6 @@ BRANDS = {
         "color": "#FF6B6B",
         "commission": 0.20,
         "iban": "TR90 0006 2000 0000 9876 5432 10",
-        "account_name": "Auroraco Gıda A.Ş.",
         "products": {
             "AURORACO MATCHA EZMESİ": {"sku": "SKU-AUR-MATCHA", "price": 650},
             "AURORACO KAKAO EZMESİ": {"sku": "SKU-AUR-CACAO", "price": 550},
@@ -76,373 +73,264 @@ BRANDS = {
         "color": "#95E1D3",
         "commission": 0.12,
         "iban": "TR90 0001 5000 0000 1122 3344 55",
-        "account_name": "Longevicals Sağlık Ürünleri",
         "products": {
             "LONGEVICALS DHA": {"sku": "SKU-LONG-DHA", "price": 1200},
             "LONGEVICALS EPA": {"sku": "SKU-LONG-EPA", "price": 1150}
         }
+    },
+    "DRJULIANA": {
+        "phone": "601158976276",
+        "color": "#A78BFA",
+        "commission": 0.25,
+        "iban": "TR90 0001 7000 0000 3344 5566 77",
+        "products": {
+            "CONSULTATION": {"sku": "SKU-JUL-CONSULT", "price": 1500},
+            "DIET PLAN": {"sku": "SKU-JUL-DIET", "price": 2500},
+            "FOLLOW-UP": {"sku": "SKU-JUL-FOLLOW", "price": 800}
+        }
     }
 }
 
-# Assets
-LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v1764805291/natuvisio_logo_gtqtfs.png"
-BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
-
 # ============================================================================
-# 2. PREMIUM CSS SYSTEM
+# 2. ICONS
 # ============================================================================
 
-def load_premium_css():
+def get_icon(name, color="#ffffff", size=24):
+    icons = {
+        "mountain": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M3 20L9 8L12 14L15 6L21 20H3Z"/></svg>',
+        "alert": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>',
+        "check": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3"><path d="M20 6L9 17L4 12"/></svg>',
+        "message": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        "box": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+        "user": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+        "clock": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        "activity": f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'
+    }
+    return icons.get(name, "")
+
+# ============================================================================
+# 3. CSS
+# ============================================================================
+
+def load_css(theme="dark"):
     st.markdown(f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
         
-        /* === GLOBAL THEME === */
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
         .stApp {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-image: linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.92)), 
+                              url("{BG_IMAGE}");
+            background-size: cover;
             background-attachment: fixed;
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-        }}
-        
-        /* === SIDEBAR === */
-        [data-testid="stSidebar"] {{
-            background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.98) 100%);
-            backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(0,0,0,0.05);
-        }}
-        
-        [data-testid="stSidebar"] .css-1d391kg {{
-            padding: 2rem 1rem;
-        }}
-        
-        /* === GLASS MORPHISM CARDS === */
-        .glass-card {{
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            border-radius: 20px;
-            padding: {FIBO['lg']}px;
-            margin-bottom: {FIBO['md']}px;
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }}
-        
-        .glass-card:hover {{
-            transform: translateY(-4px);
-            box-shadow: 0 12px 48px rgba(31, 38, 135, 0.25);
-        }}
-        
-        .glass-card-dark {{
-            background: rgba(30, 41, 59, 0.85);
-            backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Inter', sans-serif;
             color: #ffffff;
         }}
         
-        /* === PREMIUM METRICS === */
-        .metric-premium {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 16px;
+        .glass-card {{
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur({FIBO['md']}px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: {FIBO['sm']}px;
             padding: {FIBO['md']}px;
-            text-align: center;
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+            margin-bottom: {FIBO['sm']}px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
             transition: all 0.3s ease;
         }}
         
-        .metric-premium:hover {{
-            transform: translateY(-2px) scale(1.02);
-            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+        .glass-card:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 12px 48px rgba(0,0,0,0.4);
+        }}
+        
+        .alert-card {{
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #EF4444;
+            animation: pulse-red 2s infinite;
+        }}
+        
+        @keyframes pulse-red {{
+            0%, 100% {{ box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }}
+            50% {{ box-shadow: 0 0 40px rgba(239, 68, 68, 0.5); }}
         }}
         
         .metric-value {{
-            font-size: 36px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: {FIBO['lg']}px;
             font-weight: 800;
-            line-height: 1;
-            margin-bottom: 8px;
+            color: #ffffff;
+            margin-bottom: {FIBO['xs']}px;
         }}
         
         .metric-label {{
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            opacity: 0.9;
+            letter-spacing: 0.1em;
+            color: rgba(255,255,255,0.6);
+            font-weight: 600;
         }}
         
-        /* === FINANCIAL BREAKDOWN CARD === */
-        .fin-breakdown {{
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            border-radius: 20px;
-            padding: {FIBO['lg']}px;
-            color: white;
-            box-shadow: 0 8px 32px rgba(240, 147, 251, 0.3);
-        }}
-        
-        .fin-row {{
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-        }}
-        
-        .fin-row:last-child {{
-            border-bottom: none;
-            padding-top: 16px;
-            font-size: 20px;
-            font-weight: 800;
-        }}
-        
-        /* === MESSAGE CARDS === */
         .message-card {{
-            background: white;
-            border-radius: 16px;
-            padding: {FIBO['md']}px;
-            margin-bottom: {FIBO['sm']}px;
-            border-left: 4px solid #667eea;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: all 0.2s ease;
-        }}
-        
-        .message-card:hover {{
-            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-            transform: translateX(4px);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 13px;
+            margin-bottom: 8px;
         }}
         
         .message-from-admin {{
-            border-left-color: #4ECDC4;
+            border-left: 3px solid #4ECDC4;
         }}
         
-        .message-from-partner {{
-            border-left-color: #FF6B6B;
+        .message-from-user {{
+            border-left: 3px solid #A78BFA;
         }}
         
         .unread-badge {{
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: #EF4444;
             color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
+            padding: 2px 8px;
+            border-radius: 12px;
             font-size: 11px;
             font-weight: 700;
-            display: inline-block;
         }}
         
-        /* === STATUS BADGES === */
-        .status-badge {{
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: inline-block;
+        h1, h2, h3, h4 {{
+            font-family: 'Space Grotesk', sans-serif !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
         }}
         
-        .badge-pending {{
-            background: rgba(251, 191, 36, 0.2);
-            color: #92400e;
-            border: 1.5px solid rgba(251, 191, 36, 0.5);
-        }}
-        
-        .badge-notified {{
-            background: rgba(59, 130, 246, 0.2);
-            color: #1e40af;
-            border: 1.5px solid rgba(59, 130, 246, 0.5);
-        }}
-        
-        .badge-dispatched {{
-            background: rgba(16, 185, 129, 0.2);
-            color: #065f46;
-            border: 1.5px solid rgba(16, 185, 129, 0.5);
-        }}
-        
-        .badge-completed {{
-            background: rgba(139, 92, 246, 0.2);
-            color: #5b21b6;
-            border: 1.5px solid rgba(139, 92, 246, 0.5);
-        }}
-        
-        /* === BUTTONS === */
-        .stButton button {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        div.stButton > button {{
+            background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
             color: white !important;
             border: none !important;
-            border-radius: 12px !important;
-            padding: 12px 24px !important;
+            padding: {FIBO['sm']}px {FIBO['md']}px !important;
+            border-radius: {FIBO['xs']}px !important;
             font-weight: 600 !important;
-            font-size: 14px !important;
             text-transform: uppercase !important;
-            letter-spacing: 0.5px !important;
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
             transition: all 0.3s ease !important;
         }}
         
-        .stButton button:hover {{
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 24px rgba(102, 126, 234, 0.4) !important;
-        }}
-        
-        /* === INPUTS === */
-        .stTextInput input,
-        .stTextArea textarea,
-        .stSelectbox select,
-        .stNumberInput input {{
-            background: white !important;
-            border: 2px solid #e2e8f0 !important;
-            border-radius: 12px !important;
-            padding: 12px 16px !important;
-            color: #1e293b !important;
-            transition: all 0.3s ease !important;
-        }}
-        
-        .stTextInput input:focus,
-        .stTextArea textarea:focus,
-        .stSelectbox select:focus,
-        .stNumberInput input:focus {{
-            border-color: #667eea !important;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-        }}
-        
-        /* === DATAFRAME === */
-        .stDataFrame {{
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-        }}
-        
-        /* === HIDE STREAMLIT BRANDING === */
-        #MainMenu {{ visibility: hidden; }}
-        footer {{ visibility: hidden; }}
-        header {{ visibility: hidden; }}
-        
-        /* === CUSTOM SCROLLBAR === */
-        ::-webkit-scrollbar {{
-            width: 10px;
-            height: 10px;
-        }}
-        
-        ::-webkit-scrollbar-track {{
-            background: rgba(255, 255, 255, 0.1);
-        }}
-        
-        ::-webkit-scrollbar-thumb {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-        }}
-        
-        ::-webkit-scrollbar-thumb:hover {{
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-        }}
-        
-        /* === HEADINGS === */
-        h1, h2, h3, h4, h5, h6 {{
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            font-weight: 700 !important;
-            color: #1e293b !important;
-        }}
-        
-        /* === WHATSAPP BUTTON === */
-        .whatsapp-btn {{
-            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 12px;
-            text-decoration: none;
-            display: inline-block;
-            font-weight: 600;
-            box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
-            transition: all 0.3s ease;
-        }}
-        
-        .whatsapp-btn:hover {{
+        div.stButton > button:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 6px 24px rgba(37, 211, 102, 0.4);
+            box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
         }}
+        
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea,
+        .stSelectbox > div > div > select,
+        .stNumberInput > div > div > input {{
+            background: rgba(0,0,0,0.3) !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            color: #ffffff !important;
+            border-radius: {FIBO['xs']}px !important;
+        }}
+        
+        #MainMenu, header, footer {{ visibility: hidden; }}
     </style>
     """, unsafe_allow_html=True)
 
 # ============================================================================
-# 3. DATABASE OPERATIONS
+# 4. DATABASE INITIALIZATION
 # ============================================================================
 
 def init_databases():
-    """Initialize all CSV databases with proper schemas"""
-    schemas = {
-        CSV_ORDERS: [
-            "Order_ID", "Time", "Brand", "Customer", "Phone", "Address", "Items",
-            "Total_Value", "Commission_Rate", "Commission_Amt", "KDV_Amt", 
-            "Brand_Payout", "Status", "WhatsApp_Sent", "Tracking_Num", 
+    # Orders
+    if not os.path.exists(CSV_ORDERS):
+        pd.DataFrame(columns=[
+            "Order_ID", "Time", "Brand", "Customer", "Phone", "Address",
+            "Items", "Total_Value", "Commission_Rate", "Commission_Amt",
+            "Brand_Payout", "Status", "WhatsApp_Sent", "Tracking_Num",
             "Priority", "Notes", "Created_By", "Last_Modified"
-        ],
-        CSV_FINANCE: [
-            "Order_ID", "Time", "Brand", "Total_Sale", "Commission_Rate",
-            "Commission_Amt", "KDV_Amt", "Total_Deduction", "Payable_To_Brand",
-            "Invoice_Ref", "Payment_Status"
-        ],
-        CSV_PAYMENTS: [
-            "Payment_ID", "Time", "Brand", "Amount", "Method", "Reference", "Notes"
-        ],
-        CSV_MESSAGES: [
-            "Message_ID", "Time", "From_User", "From_Role", "To_User", "To_Role",
-            "Subject", "Body", "Read", "Order_ID"
-        ],
-        CSV_LOGS: [
-            "Log_ID", "Time", "Action", "User", "Order_ID", "Details"
-        ]
-    }
+        ]).to_csv(CSV_ORDERS, index=False)
     
-    for file, columns in schemas.items():
-        if not os.path.exists(file):
-            pd.DataFrame(columns=columns).to_csv(file, index=False)
+    # Payments
+    if not os.path.exists(CSV_PAYMENTS):
+        pd.DataFrame(columns=[
+            "Payment_ID", "Time", "Brand", "Amount", "Method", "Reference", "Notes"
+        ]).to_csv(CSV_PAYMENTS, index=False)
+    
+    # Logs
+    if not os.path.exists(CSV_LOGS):
+        pd.DataFrame(columns=[
+            "Log_ID", "Time", "Action", "User", "Order_ID", "Details"
+        ]).to_csv(CSV_LOGS, index=False)
+    
+    # Partners
+    if not os.path.exists(CSV_PARTNERS):
+        partners_data = []
+        for email, data in USER_CREDENTIALS.items():
+            partners_data.append({
+                "Email": email,
+                "Password": data["password"],
+                "Role": data["role"],
+                "Brand": data["brand"],
+                "Status": "Active",
+                "Created": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+        pd.DataFrame(partners_data).to_csv(CSV_PARTNERS, index=False)
+    
+    # Messages
+    if not os.path.exists(CSV_MESSAGES):
+        pd.DataFrame(columns=[
+            "Message_ID", "Time", "From_User", "From_Role", "To_User", 
+            "To_Role", "Subject", "Body", "Read", "Order_ID"
+        ]).to_csv(CSV_MESSAGES, index=False)
+    
+    # Stock Inventory (for dietitian)
+    if not os.path.exists(CSV_STOCK):
+        pd.DataFrame(columns=[
+            "Stock_ID", "Time", "Product", "Action", "Quantity", 
+            "Balance", "Notes", "Updated_By"
+        ]).to_csv(CSV_STOCK, index=False)
 
-def load_db(file):
-    """Safely load database file"""
+# ============================================================================
+# 5. DATABASE OPERATIONS
+# ============================================================================
+
+def load_orders():
     try:
-        if os.path.exists(file):
-            return pd.read_csv(file)
-    except:
-        pass
+        if os.path.exists(CSV_ORDERS):
+            return pd.read_csv(CSV_ORDERS)
+    except: pass
     return pd.DataFrame()
 
-def save_db(file, df):
-    """Safely save database file"""
+def save_order(order_data):
     try:
-        df.to_csv(file, index=False)
+        df = load_orders()
+        df = pd.concat([df, pd.DataFrame([order_data])], ignore_index=True)
+        df.to_csv(CSV_ORDERS, index=False)
+        log_action("CREATE_ORDER", st.session_state.get('user_email', 'admin'), order_data['Order_ID'], f"Created {order_data['Order_ID']}")
         return True
-    except:
+    except Exception as e:
+        st.error(f"Error: {e}")
         return False
 
-def log_action(action, user, order_id, details):
-    """Log all system actions for audit trail"""
+def update_orders(df):
     try:
-        df = load_db(CSV_LOGS)
-        log_entry = {
-            'Log_ID': f"LOG-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-            'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'Action': action,
-            'User': user,
-            'Order_ID': order_id,
-            'Details': details
-        }
-        df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
-        save_db(CSV_LOGS, df)
-    except:
-        pass
+        df.to_csv(CSV_ORDERS, index=False)
+        return True
+    except: return False
 
-# ============================================================================
-# 4. MESSAGING SYSTEM
-# ============================================================================
+def load_payments():
+    try:
+        if os.path.exists(CSV_PAYMENTS):
+            return pd.read_csv(CSV_PAYMENTS)
+    except: pass
+    return pd.DataFrame()
+
+def load_messages():
+    try:
+        if os.path.exists(CSV_MESSAGES):
+            return pd.read_csv(CSV_MESSAGES)
+    except: pass
+    return pd.DataFrame()
 
 def send_message(from_user, from_role, to_user, to_role, subject, body, order_id=""):
-    """Send message between admin and partners"""
     try:
-        df = load_db(CSV_MESSAGES)
+        df = load_messages()
         message_data = {
             "Message_ID": f"MSG-{datetime.now().strftime('%Y%m%d%H%M%S')}",
             "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -456,47 +344,82 @@ def send_message(from_user, from_role, to_user, to_role, subject, body, order_id
             "Order_ID": order_id
         }
         df = pd.concat([df, pd.DataFrame([message_data])], ignore_index=True)
-        save_db(CSV_MESSAGES, df)
-        log_action("MESSAGE_SENT", from_user, order_id, f"To: {to_user} - {subject}")
+        df.to_csv(CSV_MESSAGES, index=False)
+        log_action("MESSAGE_SENT", from_user, order_id, f"To: {to_user}")
         return True
     except:
         return False
 
 def mark_message_read(message_id):
-    """Mark message as read"""
     try:
-        df = load_db(CSV_MESSAGES)
+        df = load_messages()
         df.loc[df['Message_ID'] == message_id, 'Read'] = 'Yes'
-        save_db(CSV_MESSAGES, df)
+        df.to_csv(CSV_MESSAGES, index=False)
         return True
     except:
         return False
 
 def get_unread_count(user_email):
-    """Get unread message count for user"""
-    df = load_db(CSV_MESSAGES)
+    df = load_messages()
     if df.empty:
         return 0
     unread = df[(df['To_User'] == user_email) & (df['Read'] == 'No')]
     return len(unread)
 
-# ============================================================================
-# 5. FINANCIAL CALCULATIONS
-# ============================================================================
+def load_stock():
+    try:
+        if os.path.exists(CSV_STOCK):
+            return pd.read_csv(CSV_STOCK)
+    except: pass
+    return pd.DataFrame()
 
-def calculate_financials(total_value, commission_rate):
-    """Calculate complete financial breakdown"""
-    commission_amt = total_value * commission_rate
-    kdv_amt = commission_amt * KDV_RATE
-    total_deduction = commission_amt + kdv_amt
-    brand_payout = total_value - total_deduction
-    
-    return {
-        'commission_amt': commission_amt,
-        'kdv_amt': kdv_amt,
-        'total_deduction': total_deduction,
-        'brand_payout': brand_payout
-    }
+def update_stock(product, action, quantity, notes=""):
+    try:
+        df = load_stock()
+        current_balance = 0
+        if not df.empty:
+            product_stock = df[df['Product'] == product]
+            if not product_stock.empty:
+                current_balance = product_stock.iloc[-1]['Balance']
+        
+        if action == "ADD":
+            new_balance = current_balance + quantity
+        elif action == "REMOVE":
+            new_balance = current_balance - quantity
+        else:
+            new_balance = current_balance
+        
+        stock_data = {
+            "Stock_ID": f"STK-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "Time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "Product": product,
+            "Action": action,
+            "Quantity": quantity,
+            "Balance": new_balance,
+            "Notes": notes,
+            "Updated_By": st.session_state.get('user_email', 'system')
+        }
+        df = pd.concat([df, pd.DataFrame([stock_data])], ignore_index=True)
+        df.to_csv(CSV_STOCK, index=False)
+        log_action("STOCK_UPDATE", st.session_state.get('user_email', 'system'), "", f"{action} {quantity} {product}")
+        return True
+    except:
+        return False
+
+def log_action(action, user, order_id, details):
+    try:
+        df = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
+        log_entry = {
+            'Log_ID': f"LOG-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'Action': action,
+            'User': user,
+            'Order_ID': order_id,
+            'Details': details
+        }
+        df = pd.concat([df, pd.DataFrame([log_entry])], ignore_index=True)
+        df.to_csv(CSV_LOGS, index=False)
+    except: pass
 
 # ============================================================================
 # 6. SESSION STATE
@@ -520,30 +443,30 @@ if 'brand_lock' not in st.session_state:
 # ============================================================================
 
 def login_screen():
-    load_premium_css()
+    load_css()
     init_databases()
     
     st.markdown("<div style='height: 10vh'></div>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 1.2, 1])
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col2:
         st.markdown(f"""
-        <div class="glass-card" style="text-align: center; padding: 50px 40px;">
-            <img src="{LOGO_URL}" style="width: 100px; margin-bottom: 20px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));">
-            <h1 style="margin: 0; font-size: 32px;">NATUVISIO</h1>
-            <p style="color: #64748b; font-size: 14px; margin-top: 8px; font-weight: 500;">Ultimate Platform v9.0</p>
+        <div style="text-align:center; margin-bottom:20px;">
+            <img src="{LOGO_URL}" style="width:120px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));">
+            <h1 style="margin-top:10px;">NATUVISIO</h1>
+            <p style="opacity: 0.6; font-size: 12px;">MULTI-USER PLATFORM</p>
         </div>
         """, unsafe_allow_html=True)
         
+        login_type = st.radio("Select Login Type", ["Admin", "Partner/Dietitian"], horizontal=True)
+        
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         
-        login_type = st.radio("Select Login Type", ["👑 Admin", "🤝 Partner"], horizontal=True)
-        
-        if login_type == "👑 Admin":
+        if login_type == "Admin":
             password = st.text_input("Admin Password", type="password", key="admin_pwd")
             
-            if st.button("🔓 LOGIN AS ADMIN", use_container_width=True):
+            if st.button("🔓 LOGIN", use_container_width=True):
                 if password == ADMIN_PASS:
                     st.session_state.logged_in = True
                     st.session_state.user_role = "admin"
@@ -554,20 +477,19 @@ def login_screen():
                     st.error("❌ Invalid password")
         
         else:
-            brand = st.selectbox("Select Brand", list(PARTNER_CREDENTIALS.keys()))
-            email = st.text_input("Email", value=PARTNER_CREDENTIALS[brand]["email"], disabled=True)
+            email = st.text_input("Email", key="partner_email")
             password = st.text_input("Password", type="password", key="partner_pwd")
             
-            if st.button("🔓 LOGIN AS PARTNER", use_container_width=True):
-                if password == PARTNER_CREDENTIALS[brand]["password"]:
+            if st.button("🔓 LOGIN", use_container_width=True):
+                if email in USER_CREDENTIALS and USER_CREDENTIALS[email]["password"] == password:
                     st.session_state.logged_in = True
-                    st.session_state.user_role = "partner"
-                    st.session_state.user_brand = brand
-                    st.session_state.user_email = PARTNER_CREDENTIALS[brand]["email"]
-                    log_action("LOGIN", email, "", f"{brand} partner login")
+                    st.session_state.user_role = USER_CREDENTIALS[email]["role"]
+                    st.session_state.user_brand = USER_CREDENTIALS[email]["brand"]
+                    st.session_state.user_email = email
+                    log_action("LOGIN", email, "", f"{USER_CREDENTIALS[email]['role']} login")
                     st.rerun()
                 else:
-                    st.error("❌ Invalid password")
+                    st.error("❌ Invalid credentials")
         
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -576,1021 +498,836 @@ def login_screen():
 # ============================================================================
 
 def admin_dashboard():
-    load_premium_css()
+    load_css()
     
-    # Sidebar
-    with st.sidebar:
-        st.image(LOGO_URL, width=60)
-        st.markdown("### NATUVISIO HQ")
-        st.markdown(f"**Role:** Master Admin")
-        st.markdown(f"**Email:** {st.session_state.user_email}")
-        
+    # Header
+    col_h1, col_h2, col_h3 = st.columns([5, 1, 1])
+    
+    with col_h1:
         unread = get_unread_count(st.session_state.user_email)
-        if unread > 0:
-            st.markdown(f'<span class="unread-badge">{unread} New Messages</span>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        menu = st.radio(
-            "Navigation",
-            [
-                "📊 Dashboard",
-                "🚀 New Order",
-                "📦 Operations",
-                "💰 Financials",
-                "💬 Messages",
-                "📈 Analytics",
-                "📜 Logs"
-            ],
-            label_visibility="collapsed"
-        )
-        
-        st.markdown("---")
-        
-        if st.button("🚪 Logout", use_container_width=True):
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            {get_icon('mountain', '#4ECDC4', 34)}
+            <div>
+                <h1 style="margin:0;">ADMIN HQ</h1>
+                <span style="font-size: 11px; opacity: 0.6;">COMMAND CENTER</span>
+            </div>
+            <span class="unread-badge" style="margin-left:20px;">{unread} New</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_h3:
+        if st.button("🚪 Logout"):
             st.session_state.logged_in = False
             st.rerun()
     
-    # Main content
-    df_orders = load_db(CSV_ORDERS)
-    df_finance = load_db(CSV_FINANCE)
+    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    # ========================================================================
-    # DASHBOARD
-    # ========================================================================
-    if menu == "📊 Dashboard":
-        st.title("📊 Command Center")
-        
-        # Metrics
+    # Metrics
+    df = load_orders()
+    
+    if not df.empty:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        
-        total_orders = len(df_orders)
-        total_revenue = df_finance['Total_Sale'].sum() if not df_finance.empty else 0
-        total_commission = df_finance['Commission_Amt'].sum() if not df_finance.empty else 0
-        pending = len(df_orders[df_orders['Status'] == 'Pending']) if not df_orders.empty else 0
         
         with col_m1:
             st.markdown(f"""
-            <div class="metric-premium">
-                <div class="metric-value">{total_orders}</div>
-                <div class="metric-label">Total Orders</div>
+            <div class="glass-card" style="text-align:center;">
+                <div class="metric-label">TOTAL ORDERS</div>
+                <div class="metric-value">{len(df)}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col_m2:
             st.markdown(f"""
-            <div class="metric-premium" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <div class="metric-value">{total_revenue:,.0f}₺</div>
-                <div class="metric-label">Revenue</div>
+            <div class="glass-card" style="text-align:center; border-top: 3px solid #4ECDC4;">
+                <div class="metric-label">REVENUE</div>
+                <div class="metric-value" style="color:#4ECDC4;">{df['Total_Value'].sum():,.0f}₺</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col_m3:
             st.markdown(f"""
-            <div class="metric-premium" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <div class="metric-value">{total_commission:,.0f}₺</div>
-                <div class="metric-label">Commission</div>
+            <div class="glass-card" style="text-align:center; border-top: 3px solid #10B981;">
+                <div class="metric-label">COMMISSION</div>
+                <div class="metric-value" style="color:#10B981;">{df['Commission_Amt'].sum():,.0f}₺</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col_m4:
+            pending = len(df[df['Status'] == 'Pending'])
             st.markdown(f"""
-            <div class="metric-premium" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                <div class="metric-value">{pending}</div>
-                <div class="metric-label">Pending</div>
+            <div class="glass-card" style="text-align:center; border-top: 3px solid #F59E0B;">
+                <div class="metric-label">PENDING</div>
+                <div class="metric-value" style="color:#F59E0B;">{pending}</div>
             </div>
             """, unsafe_allow_html=True)
-        
-        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-        
-        # Charts
-        if not df_finance.empty:
-            col_c1, col_c2 = st.columns(2)
-            
-            with col_c1:
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("#### 📊 Revenue by Brand")
-                brand_revenue = df_finance.groupby('Brand')['Total_Sale'].sum().reset_index()
-                fig = px.bar(brand_revenue, x='Brand', y='Total_Sale', 
-                           color='Brand', template="plotly_white",
-                           color_discrete_sequence=px.colors.qualitative.Set2)
-                fig.update_layout(showlegend=False, height=300)
-                st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col_c2:
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("#### 🎯 Status Distribution")
-                if not df_orders.empty:
-                    status_dist = df_orders['Status'].value_counts().reset_index()
-                    status_dist.columns = ['Status', 'Count']
-                    fig = px.pie(status_dist, values='Count', names='Status',
-                               template="plotly_white",
-                               color_discrete_sequence=px.colors.qualitative.Pastel)
-                    fig.update_layout(height=300)
-                    st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Recent orders
-        if not df_orders.empty:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 📋 Recent Orders")
-            recent = df_orders.sort_values('Time', ascending=False).head(10)
-            st.dataframe(recent[['Order_ID', 'Time', 'Brand', 'Customer', 'Total_Value', 'Status']], 
-                        use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
     
-    # ========================================================================
-    # NEW ORDER
-    # ========================================================================
-    elif menu == "🚀 New Order":
-        st.title("🚀 Create New Order")
+    # Tabs
+    tabs = st.tabs([
+        "🚀 NEW DISPATCH",
+        "📦 ALL ORDERS",
+        "💬 MESSAGES",
+        "📊 ANALYTICS",
+        "👥 USER MANAGEMENT",
+        "📜 LOGS"
+    ])
+    
+    with tabs[0]:
+        render_admin_dispatch()
+    
+    with tabs[1]:
+        render_admin_orders()
+    
+    with tabs[2]:
+        render_admin_messages()
+    
+    with tabs[3]:
+        render_admin_analytics()
+    
+    with tabs[4]:
+        render_user_management()
+    
+    with tabs[5]:
+        render_admin_logs()
+
+def render_admin_dispatch():
+    col_L, col_R = st.columns([PHI, 1])
+    
+    with col_L:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 👤 Customer Information")
         
-        col_form, col_cart = st.columns([1.5, 1])
+        col_n, col_p = st.columns(2)
+        with col_n:
+            cust_name = st.text_input("Name", key="cust_name")
+        with col_p:
+            cust_phone = st.text_input("Phone", key="cust_phone")
+        cust_addr = st.text_area("Address", key="cust_addr", height=80)
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        with col_form:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 👤 Customer Information")
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 🛒 Product Selection")
+        
+        if st.session_state.cart:
+            active_brand = st.session_state.brand_lock
+            st.info(f"🔒 Brand Locked: {active_brand}")
+        else:
+            active_brand = st.selectbox("Select Brand", list(BRANDS.keys()), key="brand_sel")
+        
+        brand_data = BRANDS[active_brand]
+        products = list(brand_data["products"].keys())
+        
+        col_p, col_q = st.columns([3, 1])
+        with col_p:
+            prod = st.selectbox("Product", products, key="prod_sel")
+        with col_q:
+            qty = st.number_input("Qty", 1, value=1, key="qty")
+        
+        prod_details = brand_data["products"][prod]
+        line_total = prod_details['price'] * qty
+        comm_amt = line_total * brand_data['commission']
+        
+        if st.button("➕ ADD TO CART"):
+            st.session_state.cart.append({
+                "brand": active_brand,
+                "product": prod,
+                "sku": prod_details['sku'],
+                "qty": qty,
+                "subtotal": line_total,
+                "comm_amt": comm_amt
+            })
+            st.session_state.brand_lock = active_brand
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_R:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 📦 Cart Summary")
+        
+        if st.session_state.cart:
+            for item in st.session_state.cart:
+                st.markdown(f"**{item['product']}** × {item['qty']} = {item['subtotal']:,.0f}₺")
             
-            col_n, col_p = st.columns(2)
-            with col_n:
-                cust_name = st.text_input("Name")
-            with col_p:
-                cust_phone = st.text_input("Phone")
+            total = sum(i['subtotal'] for i in st.session_state.cart)
+            total_comm = sum(i['comm_amt'] for i in st.session_state.cart)
             
-            cust_addr = st.text_area("Address", height=80)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 🛒 Add Products")
-            
-            if st.session_state.cart:
-                active_brand = st.session_state.brand_lock
-                st.info(f"🔒 Brand locked: {active_brand}")
-            else:
-                active_brand = st.selectbox("Select Brand", list(BRANDS.keys()))
-            
-            brand_data = BRANDS[active_brand]
-            products = list(brand_data["products"].keys())
-            
-            col_p, col_q = st.columns([3, 1])
-            with col_p:
-                prod = st.selectbox("Product", products)
-            with col_q:
-                qty = st.number_input("Qty", 1, value=1)
-            
-            prod_details = brand_data["products"][prod]
-            line_total = prod_details['price'] * qty
-            
-            # Calculate financials
-            financials = calculate_financials(line_total, brand_data['commission'])
-            
-            # Show preview
             st.markdown(f"""
-            <div style="background: rgba(102, 126, 234, 0.1); border-radius: 12px; padding: 16px; margin-top: 16px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Product Total:</span>
-                    <strong>{line_total:,.0f}₺</strong>
+            <div style="background: rgba(78,205,196,0.2); border-radius: 8px; padding: 13px; margin: 13px 0;">
+                <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 21px;">
+                    <span>Total:</span>
+                    <span style="color: #4ECDC4;">{total:,.0f}₺</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span>Commission ({int(brand_data['commission']*100)}%):</span>
-                    <span style="color: #667eea;">{financials['commission_amt']:,.0f}₺</span>
-                </div>
-                <div style="display: flex; justify-content: space-between;">
-                    <span>KDV (20%):</span>
-                    <span style="color: #f5576c;">{financials['kdv_amt']:,.0f}₺</span>
+                <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <span>Commission:</span>
+                    <span style="color: #FCD34D;">{total_comm:,.0f}₺</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            if st.button("➕ Add to Cart"):
-                st.session_state.cart.append({
-                    "brand": active_brand,
-                    "product": prod,
-                    "sku": prod_details['sku'],
-                    "qty": qty,
-                    "subtotal": line_total,
-                    "commission": financials['commission_amt'],
-                    "kdv": financials['kdv_amt'],
-                    "payout": financials['brand_payout']
-                })
-                st.session_state.brand_lock = active_brand
-                st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col_cart:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 📦 Cart Summary")
-            
-            if st.session_state.cart:
-                for item in st.session_state.cart:
-                    st.markdown(f"**{item['product']}** × {item['qty']} = {item['subtotal']:,.0f}₺")
-                
-                total = sum(i['subtotal'] for i in st.session_state.cart)
-                total_comm = sum(i['commission'] for i in st.session_state.cart)
-                total_kdv = sum(i['kdv'] for i in st.session_state.cart)
-                total_payout = sum(i['payout'] for i in st.session_state.cart)
-                
-                st.markdown(f"""
-                <div class="fin-breakdown" style="margin-top: 20px;">
-                    <div class="fin-row">
-                        <span>Order Total:</span>
-                        <strong>{total:,.0f}₺</strong>
-                    </div>
-                    <div class="fin-row">
-                        <span>Commission:</span>
-                        <span>{total_comm:,.0f}₺</span>
-                    </div>
-                    <div class="fin-row">
-                        <span>KDV (20%):</span>
-                        <span>{total_kdv:,.0f}₺</span>
-                    </div>
-                    <div class="fin-row">
-                        <span>Brand Payout:</span>
-                        <strong>{total_payout:,.0f}₺</strong>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                priority = st.selectbox("Priority", ["Standard", "🚨 Urgent", "🧊 Cold"])
-                
-                if st.button("⚡ CREATE ORDER", type="primary", use_container_width=True):
-                    if cust_name and cust_phone:
-                        order_id = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
-                        items_str = ", ".join([f"{i['product']} (x{i['qty']})" for i in st.session_state.cart])
-                        
-                        # Save order
-                        order_data = {
-                            'Order_ID': order_id,
-                            'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'Brand': st.session_state.brand_lock,
-                            'Customer': cust_name,
-                            'Phone': cust_phone,
-                            'Address': cust_addr,
-                            'Items': items_str,
-                            'Total_Value': total,
-                            'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
-                            'Commission_Amt': total_comm,
-                            'KDV_Amt': total_kdv,
-                            'Brand_Payout': total_payout,
-                            'Status': 'Pending',
-                            'WhatsApp_Sent': 'NO',
-                            'Tracking_Num': '',
-                            'Priority': priority,
-                            'Notes': '',
-                            'Created_By': 'admin',
-                            'Last_Modified': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        }
-                        
-                        df_orders = load_db(CSV_ORDERS)
-                        df_orders = pd.concat([df_orders, pd.DataFrame([order_data])], ignore_index=True)
-                        save_db(CSV_ORDERS, df_orders)
-                        
-                        # Save financial record
-                        finance_data = {
-                            'Order_ID': order_id,
-                            'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'Brand': st.session_state.brand_lock,
-                            'Total_Sale': total,
-                            'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
-                            'Commission_Amt': total_comm,
-                            'KDV_Amt': total_kdv,
-                            'Total_Deduction': total_comm + total_kdv,
-                            'Payable_To_Brand': total_payout,
-                            'Invoice_Ref': '',
-                            'Payment_Status': 'Unpaid'
-                        }
-                        
-                        df_finance = load_db(CSV_FINANCE)
-                        df_finance = pd.concat([df_finance, pd.DataFrame([finance_data])], ignore_index=True)
-                        save_db(CSV_FINANCE, df_finance)
-                        
-                        log_action("CREATE_ORDER", "admin", order_id, f"Created {order_id}")
-                        
-                        st.success(f"✅ Order {order_id} created successfully!")
+            if st.button("⚡ CREATE ORDER", type="primary"):
+                if cust_name and cust_phone:
+                    order_id = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
+                    items_str = ", ".join([f"{i['product']} (x{i['qty']})" for i in st.session_state.cart])
+                    
+                    order_data = {
+                        'Order_ID': order_id,
+                        'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'Brand': st.session_state.brand_lock,
+                        'Customer': cust_name,
+                        'Phone': cust_phone,
+                        'Address': cust_addr,
+                        'Items': items_str,
+                        'Total_Value': total,
+                        'Commission_Rate': BRANDS[st.session_state.brand_lock]['commission'],
+                        'Commission_Amt': total_comm,
+                        'Brand_Payout': total - total_comm,
+                        'Status': 'Pending',
+                        'WhatsApp_Sent': 'NO',
+                        'Tracking_Num': '',
+                        'Priority': 'Standard',
+                        'Notes': '',
+                        'Created_By': 'admin',
+                        'Last_Modified': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    if save_order(order_data):
+                        st.success(f"✅ Order {order_id} created!")
                         st.session_state.cart = []
                         st.session_state.brand_lock = None
                         st.rerun()
-                    else:
-                        st.error("Please fill customer details!")
-                
-                if st.button("🗑️ Clear Cart"):
-                    st.session_state.cart = []
-                    st.session_state.brand_lock = None
-                    st.rerun()
-            else:
-                st.info("Cart is empty")
+                else:
+                    st.error("Please fill customer details!")
             
-            st.markdown('</div>', unsafe_allow_html=True)
-    
-    # ========================================================================
-    # OPERATIONS
-    # ========================================================================
-    elif menu == "📦 Operations":
-        st.title("📦 Operations Center")
-        
-        # Pending notifications
-        pending_notify = df_orders[df_orders['WhatsApp_Sent'] == 'NO']
-        
-        if not pending_notify.empty:
-            st.markdown(f'<div class="glass-card" style="border-left: 4px solid #EF4444;">', unsafe_allow_html=True)
-            st.markdown(f"#### ⚠️ {len(pending_notify)} Orders Need Notification")
-            
-            for idx, row in pending_notify.iterrows():
-                with st.expander(f"🔴 {row['Order_ID']} - {row['Brand']} - {row['Customer']}", expanded=True):
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        st.markdown(f"""
-                        **Items:** {row['Items']}  
-                        **Phone:** {row['Phone']}  
-                        **Address:** {row['Address']}  
-                        **Total:** {row['Total_Value']:,.0f}₺
-                        """)
-                    
-                    with col2:
-                        phone = BRANDS[row['Brand']]['phone']
-                        msg = f"YENİ SİPARİŞ: {row['Order_ID']}\n\n{row['Items']}\n\nMüşteri: {row['Customer']}\nTelefon: {row['Phone']}\nAdres: {row['Address']}\n\nTutar: {row['Total_Value']:,.0f}₺"
-                        link = f"https://wa.me/{phone}?text={urllib.parse.quote(msg)}"
-                        
-                        st.markdown(f'<a href="{link}" target="_blank" class="whatsapp-btn">📲 Send WhatsApp</a>', unsafe_allow_html=True)
-                        
-                        st.markdown("<div style='height: 10px'></div>", unsafe_allow_html=True)
-                        
-                        if st.button("✅ Mark as Notified", key=f"notify_{idx}"):
-                            df_orders.at[idx, 'WhatsApp_Sent'] = 'YES'
-                            df_orders.at[idx, 'Status'] = 'Notified'
-                            save_db(CSV_ORDERS, df_orders)
-                            log_action("NOTIFIED", "admin", row['Order_ID'], "Marked as notified")
-                            st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("🗑️ Clear Cart"):
+                st.session_state.cart = []
+                st.session_state.brand_lock = None
+                st.rerun()
         else:
-            st.success("✅ All orders have been notified!")
+            st.info("Cart is empty")
         
-        # Tracking entry
-        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-        
-        pending_tracking = df_orders[(df_orders['Status'] == 'Notified') & ((df_orders['Tracking_Num'].isna()) | (df_orders['Tracking_Num'] == ''))]
-        
-        if not pending_tracking.empty:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown(f"#### 📦 {len(pending_tracking)} Orders Need Tracking")
-            
-            for idx, row in pending_tracking.iterrows():
-                col1, col2, col3 = st.columns([2, 2, 1])
-                
-                with col1:
-                    st.markdown(f"**{row['Order_ID']}** - {row['Brand']}")
-                
-                with col2:
-                    tracking = st.text_input("Tracking Number", key=f"track_{idx}", label_visibility="collapsed")
-                
-                with col3:
-                    if st.button("📦 Ship", key=f"ship_{idx}"):
-                        if tracking:
-                            df_orders.at[idx, 'Tracking_Num'] = tracking
-                            df_orders.at[idx, 'Status'] = 'Dispatched'
-                            save_db(CSV_ORDERS, df_orders)
-                            log_action("DISPATCH", "admin", row['Order_ID'], f"Tracking: {tracking}")
-                            st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def render_admin_orders():
+    st.markdown("### 📦 All Orders")
     
-    # ========================================================================
-    # FINANCIALS
-    # ========================================================================
-    elif menu == "💰 Financials":
-        st.title("💰 Financial Management")
-        
-        tabs = st.tabs(["💵 Brand Payouts", "📊 Summary"])
-        
-        with tabs[0]:
-            for brand in BRANDS.keys():
-                brand_finance = df_finance[df_finance['Brand'] == brand]
-                
-                if not brand_finance.empty:
-                    total_sales = brand_finance['Total_Sale'].sum()
-                    total_commission = brand_finance['Commission_Amt'].sum()
-                    total_kdv = brand_finance['KDV_Amt'].sum()
-                    total_payout = brand_finance['Payable_To_Brand'].sum()
-                    
-                    df_payments = load_db(CSV_PAYMENTS)
-                    brand_payments = df_payments[df_payments['Brand'] == brand]
-                    total_paid = brand_payments['Amount'].sum() if not brand_payments.empty else 0
-                    balance = total_payout - total_paid
-                    
-                    with st.expander(f"🏦 {brand} - Balance: {balance:,.0f}₺", expanded=True):
-                        col1, col2 = st.columns([1, 1.5])
-                        
-                        with col1:
-                            st.markdown(f"""
-                            <div class="fin-breakdown">
-                                <div class="fin-row">
-                                    <span>Total Sales:</span>
-                                    <strong>{total_sales:,.0f}₺</strong>
-                                </div>
-                                <div class="fin-row">
-                                    <span>Commission:</span>
-                                    <span>-{total_commission:,.0f}₺</span>
-                                </div>
-                                <div class="fin-row">
-                                    <span>KDV (20%):</span>
-                                    <span>-{total_kdv:,.0f}₺</span>
-                                </div>
-                                <div class="fin-row">
-                                    <span>Total Payable:</span>
-                                    <strong>{total_payout:,.0f}₺</strong>
-                                </div>
-                                <div class="fin-row">
-                                    <span>Already Paid:</span>
-                                    <span>-{total_paid:,.0f}₺</span>
-                                </div>
-                                <div class="fin-row">
-                                    <span>Outstanding:</span>
-                                    <strong>{balance:,.0f}₺</strong>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            st.markdown(f"**IBAN:** {BRANDS[brand]['iban']}")
-                            st.markdown(f"**Account:** {BRANDS[brand]['account_name']}")
-                        
-                        with col2:
-                            st.markdown("**Record Payment**")
-                            
-                            amount = st.number_input("Amount", min_value=0.0, max_value=float(balance) if balance > 0 else 0.0, key=f"amt_{brand}")
-                            method = st.selectbox("Method", ["Bank Transfer", "Cash", "Other"], key=f"method_{brand}")
-                            reference = st.text_input("Reference", key=f"ref_{brand}")
-                            
-                            if st.button(f"💰 Record Payment for {brand}", key=f"pay_{brand}"):
-                                if amount > 0:
-                                    payment_data = {
-                                        'Payment_ID': f"PAY-{datetime.now().strftime('%m%d%H%M%S')}",
-                                        'Time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                        'Brand': brand,
-                                        'Amount': amount,
-                                        'Method': method,
-                                        'Reference': reference,
-                                        'Notes': f"Payment recorded by admin"
-                                    }
-                                    
-                                    df_payments = load_db(CSV_PAYMENTS)
-                                    df_payments = pd.concat([df_payments, pd.DataFrame([payment_data])], ignore_index=True)
-                                    save_db(CSV_PAYMENTS, df_payments)
-                                    
-                                    log_action("PAYMENT", "admin", "", f"{brand} - {amount}₺")
-                                    
-                                    st.success(f"✅ Payment of {amount:,.0f}₺ recorded for {brand}!")
-                                    st.rerun()
-        
-        with tabs[1]:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 📊 Financial Summary")
-            
-            if not df_finance.empty:
-                summary_data = []
-                
-                for brand in BRANDS.keys():
-                    brand_finance = df_finance[df_finance['Brand'] == brand]
-                    
-                    if not brand_finance.empty:
-                        df_payments = load_db(CSV_PAYMENTS)
-                        brand_payments = df_payments[df_payments['Brand'] == brand]
-                        
-                        summary_data.append({
-                            'Brand': brand,
-                            'Total Sales': brand_finance['Total_Sale'].sum(),
-                            'Commission': brand_finance['Commission_Amt'].sum(),
-                            'KDV': brand_finance['KDV_Amt'].sum(),
-                            'Payable': brand_finance['Payable_To_Brand'].sum(),
-                            'Paid': brand_payments['Amount'].sum() if not brand_payments.empty else 0,
-                            'Balance': brand_finance['Payable_To_Brand'].sum() - (brand_payments['Amount'].sum() if not brand_payments.empty else 0)
-                        })
-                
-                summary_df = pd.DataFrame(summary_data)
-                st.dataframe(summary_df, use_container_width=True, hide_index=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+    df = load_orders()
+    if df.empty:
+        st.info("No orders yet")
+        return
     
-    # ========================================================================
-    # MESSAGES
-    # ========================================================================
-    elif menu == "💬 Messages":
-        st.title("💬 Message Center")
+    # Filters
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        brand_filter = st.multiselect("Filter by Brand", list(BRANDS.keys()))
+    with col_f2:
+        status_filter = st.multiselect("Filter by Status", ["Pending", "Notified", "Dispatched", "Completed"])
+    
+    filtered = df.copy()
+    if brand_filter:
+        filtered = filtered[filtered['Brand'].isin(brand_filter)]
+    if status_filter:
+        filtered = filtered[filtered['Status'].isin(status_filter)]
+    
+    st.dataframe(filtered.sort_values('Time', ascending=False), use_container_width=True, hide_index=True)
+
+def render_admin_messages():
+    st.markdown("### 💬 Messages")
+    
+    df_messages = load_messages()
+    
+    # Compose new message
+    with st.expander("✉️ Send New Message", expanded=False):
+        recipient_brand = st.selectbox("To", [b for b in BRANDS.keys() if b in USER_CREDENTIALS.values()])
+        subject = st.text_input("Subject")
+        body = st.text_area("Message", height=100)
         
-        # Compose message
-        with st.expander("✉️ Send New Message", expanded=False):
-            recipient_brand = st.selectbox("To Brand", list(BRANDS.keys()))
-            subject = st.text_input("Subject")
-            body = st.text_area("Message", height=150)
-            
-            if st.button("📤 Send Message"):
-                if subject and body:
-                    recipient_email = PARTNER_CREDENTIALS[recipient_brand]["email"]
-                    
+        if st.button("📤 Send Message"):
+            if subject and body:
+                # Find recipient email
+                recipient_email = None
+                for email, data in USER_CREDENTIALS.items():
+                    if data["brand"] == recipient_brand:
+                        recipient_email = email
+                        break
+                
+                if recipient_email:
                     if send_message(
                         st.session_state.user_email,
                         "admin",
                         recipient_email,
-                        "partner",
+                        USER_CREDENTIALS[recipient_email]["role"],
                         subject,
                         body
                     ):
-                        st.success("Message sent successfully!")
+                        st.success("Message sent!")
                         st.rerun()
+    
+    # Display messages
+    st.markdown("---")
+    st.markdown("#### 📨 Inbox")
+    
+    if df_messages.empty:
+        st.info("No messages")
+    else:
+        my_messages = df_messages[
+            (df_messages['To_User'] == st.session_state.user_email) |
+            (df_messages['From_User'] == st.session_state.user_email)
+        ].sort_values('Time', ascending=False)
         
-        # Display messages
-        st.markdown("---")
-        st.markdown("#### 📨 Message History")
-        
-        df_messages = load_db(CSV_MESSAGES)
-        
-        if df_messages.empty:
-            st.info("No messages yet")
-        else:
-            my_messages = df_messages[
-                (df_messages['To_User'] == st.session_state.user_email) |
-                (df_messages['From_User'] == st.session_state.user_email)
-            ].sort_values('Time', ascending=False)
+        for idx, msg in my_messages.iterrows():
+            is_from_me = msg['From_User'] == st.session_state.user_email
+            card_class = "message-from-admin" if is_from_me else "message-from-user"
             
-            for idx, msg in my_messages.iterrows():
-                is_from_me = msg['From_User'] == st.session_state.user_email
-                card_class = "message-from-admin" if is_from_me else "message-from-partner"
-                
-                st.markdown(f"""
-                <div class="message-card {card_class}">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                        <div>
-                            <strong style="font-size: 14px;">{"To: " + msg['To_User'] if is_from_me else "From: " + msg['From_User']}</strong>
-                            {' <span class="unread-badge">NEW</span>' if not is_from_me and msg['Read'] == 'No' else ''}
-                        </div>
-                        <span style="font-size: 12px; color: #64748b;">{msg['Time']}</span>
-                    </div>
-                    <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">{msg['Subject']}</div>
-                    <div style="font-size: 13px; color: #475569;">{msg['Body']}</div>
+            st.markdown(f"""
+            <div class="message-card {card_class}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>{"To: " + msg['To_User'] if is_from_me else "From: " + msg['From_User']}</strong>
+                    <span style="font-size: 11px; opacity: 0.6;">{msg['Time']}</span>
                 </div>
-                """, unsafe_allow_html=True)
-                
-                if not is_from_me and msg['Read'] == 'No':
-                    if st.button("Mark as Read", key=f"read_{msg['Message_ID']}"):
-                        mark_message_read(msg['Message_ID'])
-                        st.rerun()
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">{msg['Subject']}</div>
+                <div style="font-size: 12px; opacity: 0.8;">{msg['Body']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not is_from_me and msg['Read'] == 'No':
+                if st.button("Mark as Read", key=f"read_{msg['Message_ID']}"):
+                    mark_message_read(msg['Message_ID'])
+                    st.rerun()
+
+def render_admin_analytics():
+    st.markdown("### 📊 Analytics")
     
-    # ========================================================================
-    # ANALYTICS
-    # ========================================================================
-    elif menu == "📈 Analytics":
-        st.title("📈 Business Analytics")
-        
-        if not df_finance.empty and not df_orders.empty:
-            # Time series
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 📅 Sales Over Time")
-            
-            df_orders_copy = df_orders.copy()
-            df_orders_copy['Date'] = pd.to_datetime(df_orders_copy['Time']).dt.date
-            daily_sales = df_orders_copy.groupby('Date')['Total_Value'].sum().reset_index()
-            
-            fig = px.line(daily_sales, x='Date', y='Total_Value', 
-                         template="plotly_white",
-                         labels={'Total_Value': 'Revenue (₺)', 'Date': 'Date'})
-            fig.update_traces(line_color='#667eea', line_width=3)
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Brand comparison
-            col_a1, col_a2 = st.columns(2)
-            
-            with col_a1:
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("#### 🏆 Brand Performance")
-                
-                brand_stats = df_finance.groupby('Brand').agg({
-                    'Total_Sale': 'sum',
-                    'Commission_Amt': 'sum'
-                }).reset_index()
-                
-                fig = px.bar(brand_stats, x='Brand', y=['Total_Sale', 'Commission_Amt'],
-                           barmode='group', template="plotly_white",
-                           color_discrete_sequence=['#667eea', '#f5576c'])
-                st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col_a2:
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("#### 🎯 Order Status")
-                
-                status_dist = df_orders['Status'].value_counts().reset_index()
-                status_dist.columns = ['Status', 'Count']
-                
-                fig = px.pie(status_dist, values='Count', names='Status',
-                           template="plotly_white",
-                           color_discrete_sequence=px.colors.qualitative.Set3)
-                st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.info("Not enough data for analytics yet")
+    df = load_orders()
+    if df.empty:
+        st.info("No data")
+        return
     
-    # ========================================================================
-    # LOGS
-    # ========================================================================
-    elif menu == "📜 Logs":
-        st.title("📜 System Logs")
-        
-        df_logs = load_db(CSV_LOGS)
-        
-        if df_logs.empty:
-            st.info("No logs yet")
-        else:
-            # Filters
-            col_f1, col_f2 = st.columns(2)
-            
-            with col_f1:
-                users = df_logs['User'].unique().tolist()
-                user_filter = st.multiselect("Filter by User", users)
-            
-            with col_f2:
-                actions = df_logs['Action'].unique().tolist()
-                action_filter = st.multiselect("Filter by Action", actions)
-            
-            filtered_logs = df_logs.copy()
-            
-            if user_filter:
-                filtered_logs = filtered_logs[filtered_logs['User'].isin(user_filter)]
-            
-            if action_filter:
-                filtered_logs = filtered_logs[filtered_logs['Action'].isin(action_filter)]
-            
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.dataframe(filtered_logs.sort_values('Time', ascending=False), 
-                        use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    col_a1, col_a2 = st.columns(2)
+    
+    with col_a1:
+        st.markdown("**Revenue by Brand**")
+        brand_revenue = df.groupby('Brand')['Total_Value'].sum()
+        st.bar_chart(brand_revenue)
+    
+    with col_a2:
+        st.markdown("**Orders by Brand**")
+        brand_orders = df['Brand'].value_counts()
+        st.bar_chart(brand_orders)
+    
+    st.markdown("**Status Distribution**")
+    status_dist = df['Status'].value_counts()
+    st.bar_chart(status_dist)
+
+def render_user_management():
+    st.markdown("### 👥 User Management")
+    
+    partners_df = pd.read_csv(CSV_PARTNERS)
+    st.dataframe(partners_df, use_container_width=True, hide_index=True)
+
+def render_admin_logs():
+    st.markdown("### 📜 System Logs")
+    
+    df_logs = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
+    
+    if df_logs.empty:
+        st.info("No logs")
+        return
+    
+    # Filters
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        user_filter = st.multiselect("Filter by User", df_logs['User'].unique().tolist())
+    with col_f2:
+        action_filter = st.multiselect("Filter by Action", df_logs['Action'].unique().tolist())
+    
+    filtered = df_logs.copy()
+    if user_filter:
+        filtered = filtered[filtered['User'].isin(user_filter)]
+    if action_filter:
+        filtered = filtered[filtered['Action'].isin(action_filter)]
+    
+    st.dataframe(filtered.sort_values('Time', ascending=False), use_container_width=True, hide_index=True)
 
 # ============================================================================
 # 9. PARTNER DASHBOARD
 # ============================================================================
 
 def partner_dashboard():
-    load_premium_css()
-    
+    load_css()
     brand = st.session_state.user_brand
     brand_color = BRANDS[brand]['color']
     
-    # Sidebar
-    with st.sidebar:
-        st.image(LOGO_URL, width=60)
-        st.markdown(f"### {brand}")
-        st.markdown(f"**Email:** {st.session_state.user_email}")
-        
+    # Header
+    col_h1, col_h2 = st.columns([5, 1])
+    
+    with col_h1:
         unread = get_unread_count(st.session_state.user_email)
-        if unread > 0:
-            st.markdown(f'<span class="unread-badge">{unread} New Messages</span>', unsafe_allow_html=True)
-        
-        st.markdown("---")
-        
-        menu = st.radio(
-            "Navigation",
-            [
-                "📊 Dashboard",
-                "📥 New Orders",
-                "🚚 Shipping",
-                "✅ Completed",
-                "💰 Financials",
-                "💬 Messages"
-            ],
-            label_visibility="collapsed"
-        )
-        
-        st.markdown("---")
-        
-        if st.button("🚪 Logout", use_container_width=True):
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="{LOGO_URL}" style="height:40px;">
+            <div>
+                <h1 style="margin:0; color:{brand_color};">{brand}</h1>
+                <span style="font-size: 11px; opacity: 0.6;">PARTNER PORTAL</span>
+            </div>
+            <span class="unread-badge" style="margin-left:20px;">{unread} New</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_h2:
+        if st.button("🚪 Logout"):
             st.session_state.logged_in = False
             st.rerun()
     
-    # Load data
-    df_orders = load_db(CSV_ORDERS)
-    df_finance = load_db(CSV_FINANCE)
+    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
     
-    my_orders = df_orders[df_orders['Brand'] == brand]
-    my_finance = df_finance[df_finance['Brand'] == brand]
+    # Metrics
+    df = load_orders()
+    my_orders = df[df['Brand'] == brand]
     
-    # ========================================================================
-    # DASHBOARD
-    # ========================================================================
-    if menu == "📊 Dashboard":
-        st.title(f"📊 {brand} Dashboard")
-        
-        # Metrics
+    if not my_orders.empty:
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        
-        total_orders = len(my_orders)
-        pending_orders = len(my_orders[my_orders['Status'] == 'Pending'])
-        completed_orders = len(my_orders[my_orders['Status'] == 'Completed'])
-        
-        total_earnings = my_finance['Payable_To_Brand'].sum() if not my_finance.empty else 0
         
         with col_m1:
             st.markdown(f"""
-            <div class="metric-premium">
-                <div class="metric-value">{total_orders}</div>
-                <div class="metric-label">Total Orders</div>
+            <div class="glass-card" style="text-align:center;">
+                <div class="metric-label">MY ORDERS</div>
+                <div class="metric-value">{len(my_orders)}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col_m2:
+            pending = len(my_orders[my_orders['Status'] == 'Pending'])
             st.markdown(f"""
-            <div class="metric-premium" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                <div class="metric-value">{pending_orders}</div>
-                <div class="metric-label">Pending</div>
+            <div class="glass-card" style="text-align:center; border-top: 3px solid #F59E0B;">
+                <div class="metric-label">PENDING</div>
+                <div class="metric-value" style="color:#F59E0B;">{pending}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col_m3:
+            completed = len(my_orders[my_orders['Status'] == 'Completed'])
             st.markdown(f"""
-            <div class="metric-premium" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
-                <div class="metric-value">{completed_orders}</div>
-                <div class="metric-label">Completed</div>
+            <div class="glass-card" style="text-align:center; border-top: 3px solid #10B981;">
+                <div class="metric-label">COMPLETED</div>
+                <div class="metric-value" style="color:#10B981;">{completed}</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col_m4:
+            earnings = my_orders[my_orders['Status'] == 'Completed']['Brand_Payout'].sum()
             st.markdown(f"""
-            <div class="metric-premium" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #1e293b;">
-                <div class="metric-value">{total_earnings:,.0f}₺</div>
-                <div class="metric-label">Total Earnings</div>
+            <div class="glass-card" style="text-align:center; border-top: 3px solid {brand_color};">
+                <div class="metric-label">EARNINGS</div>
+                <div class="metric-value" style="color:{brand_color};">{earnings:,.0f}₺</div>
             </div>
             """, unsafe_allow_html=True)
-        
-        st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-        
-        # Recent orders
-        if not my_orders.empty:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("#### 📋 Recent Orders")
-            
-            recent = my_orders.sort_values('Time', ascending=False).head(10)
-            st.dataframe(recent[['Order_ID', 'Time', 'Customer', 'Total_Value', 'Status', 'Tracking_Num']], 
-                        use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
     
-    # ========================================================================
-    # NEW ORDERS
-    # ========================================================================
-    elif menu == "📥 New Orders":
-        st.title("📥 New Orders")
-        
-        pending = my_orders[my_orders['Status'] == 'Pending']
-        
-        if pending.empty:
-            st.success("✅ No pending orders!")
-        else:
-            for idx, row in pending.iterrows():
-                st.markdown('<div class="glass-card" style="border-left: 4px solid #EF4444;">', unsafe_allow_html=True)
-                
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    st.markdown(f"### 🆕 {row['Order_ID']}")
-                    st.markdown(f"**Customer:** {row['Customer']}")
-                    st.markdown(f"**Phone:** {row['Phone']}")
-                    st.markdown(f"**Address:** {row['Address']}")
-                    st.markdown(f"**Items:** {row['Items']}")
-                
-                with col2:
-                    st.markdown(f"""
-                    <div class="fin-breakdown">
-                        <div class="fin-row">
-                            <span>Order Total:</span>
-                            <strong>{row['Total_Value']:,.0f}₺</strong>
-                        </div>
-                        <div class="fin-row">
-                            <span>Commission:</span>
-                            <span>-{row['Commission_Amt']:,.0f}₺</span>
-                        </div>
-                        <div class="fin-row">
-                            <span>KDV (20%):</span>
-                            <span>-{row['KDV_Amt']:,.0f}₺</span>
-                        </div>
-                        <div class="fin-row">
-                            <span>Your Payout:</span>
-                            <strong style="color: #10B981;">{row['Brand_Payout']:,.0f}₺</strong>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown("<div style='height: 10px'></div>", unsafe_allow_html=True)
-                    
-                    if row['WhatsApp_Sent'] == 'YES':
-                        st.success("✅ Notified via WhatsApp")
-                    else:
-                        st.warning("⏳ Awaiting WhatsApp notification from admin")
-                    
-                    if st.button("✅ Accept Order", key=f"accept_{idx}"):
-                        df_orders.at[idx, 'Status'] = 'Notified'
-                        save_db(CSV_ORDERS, df_orders)
-                        log_action("ORDER_ACCEPTED", st.session_state.user_email, row['Order_ID'], "Order accepted by partner")
-                        st.success("Order accepted!")
-                        st.rerun()
-                
-                st.markdown('</div>', unsafe_allow_html=True)
+    # Tabs
+    tabs = st.tabs([
+        "📥 NEW ORDERS",
+        "🚚 SHIPPING",
+        "✅ COMPLETED",
+        "💬 MESSAGES",
+        "📊 MY STATS"
+    ])
     
-    # ========================================================================
-    # SHIPPING
-    # ========================================================================
-    elif menu == "🚚 Shipping":
-        st.title("🚚 Shipping Management")
-        
-        to_ship = my_orders[my_orders['Status'] == 'Notified']
-        
-        if to_ship.empty:
-            st.info("No orders to ship")
-        else:
-            for idx, row in to_ship.iterrows():
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                
-                st.markdown(f"### 📦 {row['Order_ID']}")
-                st.markdown(f"**Customer:** {row['Customer']} - {row['Phone']}")
-                st.markdown(f"**Items:** {row['Items']}")
-                
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    tracking = st.text_input("Tracking Number", key=f"track_{idx}")
-                    courier = st.selectbox("Courier", ["Yurtiçi", "Aras", "MNG", "PTT", "Other"], key=f"courier_{idx}")
-                
-                with col2:
-                    st.markdown("<div style='height: 20px'></div>", unsafe_allow_html=True)
-                    if st.button("🚀 Mark as Shipped", key=f"ship_{idx}"):
-                        if tracking:
-                            df_orders.at[idx, 'Status'] = 'Dispatched'
-                            df_orders.at[idx, 'Tracking_Num'] = f"{courier} - {tracking}"
-                            save_db(CSV_ORDERS, df_orders)
-                            log_action("ORDER_SHIPPED", st.session_state.user_email, row['Order_ID'], f"Shipped via {courier}")
-                            st.success("Order marked as shipped!")
-                            st.rerun()
-                        else:
-                            st.error("Please enter tracking number")
-                
-                st.markdown('</div>', unsafe_allow_html=True)
+    with tabs[0]:
+        render_partner_new_orders()
     
-    # ========================================================================
-    # COMPLETED
-    # ========================================================================
-    elif menu == "✅ Completed":
-        st.title("✅ Completed Orders")
-        
-        completed = my_orders[my_orders['Status'].isin(['Dispatched', 'Completed'])]
-        
-        if completed.empty:
-            st.info("No completed orders yet")
-        else:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.dataframe(completed[['Order_ID', 'Time', 'Customer', 'Items', 'Total_Value', 'Brand_Payout', 'Status', 'Tracking_Num']], 
-                        use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+    with tabs[1]:
+        render_partner_shipping()
     
-    # ========================================================================
-    # FINANCIALS
-    # ========================================================================
-    elif menu == "💰 Financials":
-        st.title("💰 Financial Overview")
-        
-        if my_finance.empty:
-            st.info("No financial data yet")
-        else:
-            total_sales = my_finance['Total_Sale'].sum()
-            total_commission = my_finance['Commission_Amt'].sum()
-            total_kdv = my_finance['KDV_Amt'].sum()
-            total_payable = my_finance['Payable_To_Brand'].sum()
-            
-            df_payments = load_db(CSV_PAYMENTS)
-            my_payments = df_payments[df_payments['Brand'] == brand]
-            total_paid = my_payments['Amount'].sum() if not my_payments.empty else 0
-            balance = total_payable - total_paid
-            
-            # Summary card
-            st.markdown(f"""
-            <div class="fin-breakdown" style="max-width: 600px; margin: 0 auto;">
-                <h3 style="margin-bottom: 20px; text-align: center;">Financial Breakdown</h3>
-                <div class="fin-row">
-                    <span>Total Sales:</span>
-                    <strong>{total_sales:,.0f}₺</strong>
-                </div>
-                <div class="fin-row">
-                    <span>NATUVISIO Commission ({int(BRANDS[brand]['commission']*100)}%):</span>
-                    <span style="color: #667eea;">-{total_commission:,.0f}₺</span>
-                </div>
-                <div class="fin-row">
-                    <span>KDV on Commission (20%):</span>
-                    <span style="color: #f5576c;">-{total_kdv:,.0f}₺</span>
-                </div>
-                <div class="fin-row">
-                    <span>Total Payable to You:</span>
-                    <strong style="color: #10B981;">{total_payable:,.0f}₺</strong>
-                </div>
-                <div class="fin-row">
-                    <span>Already Paid:</span>
-                    <span>-{total_paid:,.0f}₺</span>
-                </div>
-                <div class="fin-row">
-                    <span>Outstanding Balance:</span>
-                    <strong style="font-size: 24px; color: #667eea;">{balance:,.0f}₺</strong>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown(f"<div style='height: {FIBO['lg']}px'></div>", unsafe_allow_html=True)
-            
-            # Instructions
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown("### 📋 Invoice Instructions")
-            st.markdown(f"""
-            **To NATUVISIO (Your Commission Invoice):**
-            - Amount: **{total_commission + total_kdv:,.2f}₺** (Commission + KDV)
-            - Breakdown: {total_commission:,.2f}₺ (Commission) + {total_kdv:,.2f}₺ (20% KDV)
-            - Description: "NATUVISIO platform commission for {brand} orders"
-            
-            **To Your Customers (Product Invoices):**
-            - You should issue invoices for the **full product amounts** to your customers
-            - Total customer invoices: **{total_sales:,.0f}₺**
-            - Each order's full value should be invoiced to the respective customer
-            """)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            # Payment history
-            if not my_payments.empty:
-                st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
-                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                st.markdown("### 💳 Payment History")
-                st.dataframe(my_payments[['Time', 'Amount', 'Method', 'Reference', 'Notes']], 
-                            use_container_width=True, hide_index=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+    with tabs[2]:
+        render_partner_completed()
     
-    # ========================================================================
-    # MESSAGES
-    # ========================================================================
-    elif menu == "💬 Messages":
-        st.title("💬 Messages")
-        
-        # Compose message
-        with st.expander("✉️ Send Message to Admin", expanded=False):
-            subject = st.text_input("Subject")
-            body = st.text_area("Message", height=150)
+    with tabs[3]:
+        render_partner_messages()
+    
+    with tabs[4]:
+        render_partner_stats()
+
+def render_partner_new_orders():
+    st.markdown("### 📥 New Orders")
+    
+    df = load_orders()
+    brand = st.session_state.user_brand
+    new_orders = df[(df['Brand'] == brand) & (df['Status'] == 'Pending')]
+    
+    if new_orders.empty:
+        st.info("No pending orders")
+        return
+    
+    for idx, row in new_orders.iterrows():
+        with st.expander(f"🆕 {row['Order_ID']} - {row['Customer']}", expanded=True):
+            col1, col2 = st.columns(2)
             
-            if st.button("📤 Send Message"):
-                if subject and body:
-                    if send_message(
-                        st.session_state.user_email,
-                        "partner",
-                        "admin@natuvisio.com",
-                        "admin",
-                        subject,
-                        body
-                    ):
-                        st.success("Message sent!")
-                        st.rerun()
-        
-        # Display messages
-        st.markdown("---")
-        st.markdown("#### 📨 Message History")
-        
-        df_messages = load_db(CSV_MESSAGES)
-        
-        if df_messages.empty:
-            st.info("No messages yet")
-        else:
-            my_messages = df_messages[
-                (df_messages['To_User'] == st.session_state.user_email) |
-                (df_messages['From_User'] == st.session_state.user_email)
-            ].sort_values('Time', ascending=False)
-            
-            for idx, msg in my_messages.iterrows():
-                is_from_me = msg['From_User'] == st.session_state.user_email
-                card_class = "message-from-partner" if is_from_me else "message-from-admin"
-                
+            with col1:
                 st.markdown(f"""
-                <div class="message-card {card_class}">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                        <div>
-                            <strong style="font-size: 14px;">{"To: Admin" if is_from_me else "From: Admin"}</strong>
-                            {' <span class="unread-badge">NEW</span>' if not is_from_me and msg['Read'] == 'No' else ''}
-                        </div>
-                        <span style="font-size: 12px; color: #64748b;">{msg['Time']}</span>
-                    </div>
-                    <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #1e293b;">{msg['Subject']}</div>
-                    <div style="font-size: 13px; color: #475569;">{msg['Body']}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                **Customer:** {row['Customer']}  
+                **Phone:** {row['Phone']}  
+                **Address:** {row['Address']}  
+                **Items:** {row['Items']}
+                """)
+            
+            with col2:
+                st.metric("Your Payout", f"{row['Brand_Payout']:,.0f}₺")
                 
-                if not is_from_me and msg['Read'] == 'No':
-                    if st.button("Mark as Read", key=f"read_{msg['Message_ID']}"):
-                        mark_message_read(msg['Message_ID'])
-                        st.rerun()
+                if st.button("✅ Accept Order", key=f"accept_{row['Order_ID']}"):
+                    df.at[idx, 'Status'] = 'Notified'
+                    df.at[idx, 'WhatsApp_Sent'] = 'YES'
+                    update_orders(df)
+                    log_action("ORDER_ACCEPTED", st.session_state.user_email, row['Order_ID'], "Order accepted by partner")
+                    st.success("Order accepted!")
+                    st.rerun()
+
+def render_partner_shipping():
+    st.markdown("### 🚚 Shipping Management")
+    
+    df = load_orders()
+    brand = st.session_state.user_brand
+    to_ship = df[(df['Brand'] == brand) & (df['Status'] == 'Notified')]
+    
+    if to_ship.empty:
+        st.info("No orders to ship")
+        return
+    
+    for idx, row in to_ship.iterrows():
+        with st.expander(f"📦 {row['Order_ID']} - {row['Customer']}"):
+            tracking = st.text_input("Tracking Number", key=f"track_{row['Order_ID']}")
+            courier = st.selectbox("Courier", ["Yurtiçi", "Aras", "MNG", "PTT"], key=f"courier_{row['Order_ID']}")
+            
+            if st.button("🚀 Mark as Shipped", key=f"ship_{row['Order_ID']}"):
+                if tracking:
+                    df.at[idx, 'Status'] = 'Dispatched'
+                    df.at[idx, 'Tracking_Num'] = f"{courier} - {tracking}"
+                    update_orders(df)
+                    log_action("ORDER_SHIPPED", st.session_state.user_email, row['Order_ID'], f"Shipped via {courier}")
+                    st.success("Order marked as shipped!")
+                    st.rerun()
+                else:
+                    st.error("Please enter tracking number")
+
+def render_partner_completed():
+    st.markdown("### ✅ Completed Orders")
+    
+    df = load_orders()
+    brand = st.session_state.user_brand
+    completed = df[(df['Brand'] == brand) & (df['Status'].isin(['Dispatched', 'Completed']))]
+    
+    if completed.empty:
+        st.info("No completed orders")
+        return
+    
+    st.dataframe(completed[['Order_ID', 'Time', 'Customer', 'Items', 'Brand_Payout', 'Status', 'Tracking_Num']], 
+                use_container_width=True, hide_index=True)
+
+def render_partner_messages():
+    st.markdown("### 💬 Messages")
+    
+    df_messages = load_messages()
+    
+    # Compose
+    with st.expander("✉️ Send Message to Admin", expanded=False):
+        subject = st.text_input("Subject")
+        body = st.text_area("Message", height=100)
+        
+        if st.button("📤 Send"):
+            if subject and body:
+                if send_message(
+                    st.session_state.user_email,
+                    "partner",
+                    "admin@natuvisio.com",
+                    "admin",
+                    subject,
+                    body
+                ):
+                    st.success("Message sent!")
+                    st.rerun()
+    
+    # Display
+    st.markdown("---")
+    st.markdown("#### 📨 My Messages")
+    
+    if df_messages.empty:
+        st.info("No messages")
+    else:
+        my_messages = df_messages[
+            (df_messages['To_User'] == st.session_state.user_email) |
+            (df_messages['From_User'] == st.session_state.user_email)
+        ].sort_values('Time', ascending=False)
+        
+        for idx, msg in my_messages.iterrows():
+            is_from_me = msg['From_User'] == st.session_state.user_email
+            card_class = "message-from-user" if is_from_me else "message-from-admin"
+            
+            st.markdown(f"""
+            <div class="message-card {card_class}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>{"To: Admin" if is_from_me else "From: Admin"}</strong>
+                    <span style="font-size: 11px; opacity: 0.6;">{msg['Time']}</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">{msg['Subject']}</div>
+                <div style="font-size: 12px; opacity: 0.8;">{msg['Body']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not is_from_me and msg['Read'] == 'No':
+                if st.button("Mark as Read", key=f"read_{msg['Message_ID']}"):
+                    mark_message_read(msg['Message_ID'])
+                    st.rerun()
+
+def render_partner_stats():
+    st.markdown("### 📊 My Statistics")
+    
+    df = load_orders()
+    brand = st.session_state.user_brand
+    my_orders = df[df['Brand'] == brand]
+    
+    if my_orders.empty:
+        st.info("No data yet")
+        return
+    
+    # Monthly performance
+    my_orders['Month'] = pd.to_datetime(my_orders['Time']).dt.to_period('M')
+    monthly = my_orders.groupby('Month').agg({
+        'Order_ID': 'count',
+        'Brand_Payout': 'sum'
+    }).reset_index()
+    monthly.columns = ['Month', 'Orders', 'Earnings']
+    
+    st.markdown("**Monthly Performance**")
+    st.dataframe(monthly, use_container_width=True, hide_index=True)
+    
+    st.markdown("**Orders Over Time**")
+    st.line_chart(my_orders.groupby('Month').size())
 
 # ============================================================================
-# 10. MAIN EXECUTION
+# 10. DIETITIAN DASHBOARD
+# ============================================================================
+
+def dietitian_dashboard():
+    load_css()
+    brand = st.session_state.user_brand
+    
+    # Header
+    col_h1, col_h2 = st.columns([5, 1])
+    
+    with col_h1:
+        unread = get_unread_count(st.session_state.user_email)
+        st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="{LOGO_URL}" style="height:40px;">
+            <div>
+                <h1 style="margin:0; color:#A78BFA;">DR. JULIANA</h1>
+                <span style="font-size: 11px; opacity: 0.6;">DIETITIAN PANEL</span>
+            </div>
+            <span class="unread-badge" style="margin-left:20px;">{unread} New</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col_h2:
+        if st.button("🚪 Logout"):
+            st.session_state.logged_in = False
+            st.rerun()
+    
+    st.markdown(f"<div style='height: {FIBO['md']}px'></div>", unsafe_allow_html=True)
+    
+    # Tabs
+    tabs = st.tabs([
+        "📦 STOCK INVENTORY",
+        "💰 SALES & EARNINGS",
+        "💬 MESSAGES",
+        "📜 MY ACTIVITY"
+    ])
+    
+    with tabs[0]:
+        render_dietitian_stock()
+    
+    with tabs[1]:
+        render_dietitian_sales()
+    
+    with tabs[2]:
+        render_dietitian_messages()
+    
+    with tabs[3]:
+        render_dietitian_activity()
+
+def render_dietitian_stock():
+    st.markdown("### 📦 Stock Inventory")
+    
+    # Current stock levels
+    df_stock = load_stock()
+    
+    st.markdown("#### Current Stock Levels")
+    
+    if df_stock.empty:
+        st.info("No stock records yet")
+        current_stock = {}
+    else:
+        # Get latest balance for each product
+        products = BRANDS["DRJULIANA"]["products"].keys()
+        current_stock = {}
+        
+        for product in products:
+            product_history = df_stock[df_stock['Product'] == product]
+            if not product_history.empty:
+                current_stock[product] = product_history.iloc[-1]['Balance']
+            else:
+                current_stock[product] = 0
+        
+        # Display as cards
+        cols = st.columns(3)
+        for idx, (product, balance) in enumerate(current_stock.items()):
+            with cols[idx % 3]:
+                color = "#10B981" if balance > 5 else "#EF4444"
+                st.markdown(f"""
+                <div class="glass-card" style="text-align:center; border-top: 3px solid {color};">
+                    <div class="metric-label">{product}</div>
+                    <div class="metric-value" style="color:{color};">{balance}</div>
+                    <div style="font-size:10px; opacity:0.6;">UNITS IN STOCK</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Add/Remove stock
+    st.markdown("---")
+    st.markdown("#### Update Stock")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        product = st.selectbox("Product", list(BRANDS["DRJULIANA"]["products"].keys()))
+    with col2:
+        action = st.selectbox("Action", ["ADD", "REMOVE"])
+    with col3:
+        quantity = st.number_input("Quantity", min_value=1, value=1)
+    
+    notes = st.text_input("Notes (optional)")
+    
+    if st.button("🔄 Update Stock"):
+        if update_stock(product, action, quantity, notes):
+            st.success(f"Stock updated: {action} {quantity} units of {product}")
+            st.rerun()
+    
+    # Stock history
+    if not df_stock.empty:
+        st.markdown("---")
+        st.markdown("#### Stock Movement History")
+        st.dataframe(df_stock.sort_values('Time', ascending=False), use_container_width=True, hide_index=True)
+
+def render_dietitian_sales():
+    st.markdown("### 💰 Sales & Earnings")
+    
+    df = load_orders()
+    my_orders = df[df['Brand'] == "DRJULIANA"]
+    
+    if my_orders.empty:
+        st.info("No sales yet")
+        return
+    
+    # Metrics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Sales", len(my_orders))
+    with col2:
+        total_revenue = my_orders['Total_Value'].sum()
+        st.metric("Revenue", f"{total_revenue:,.0f}₺")
+    with col3:
+        total_earnings = my_orders[my_orders['Status'] == 'Completed']['Brand_Payout'].sum()
+        st.metric("Earnings (Completed)", f"{total_earnings:,.0f}₺")
+    
+    # Sales breakdown
+    st.markdown("---")
+    st.markdown("#### Sales Breakdown by Service")
+    
+    service_sales = my_orders.groupby('Items').agg({
+        'Order_ID': 'count',
+        'Total_Value': 'sum',
+        'Brand_Payout': 'sum'
+    }).reset_index()
+    service_sales.columns = ['Service', 'Count', 'Revenue', 'Your Earnings']
+    
+    st.dataframe(service_sales, use_container_width=True, hide_index=True)
+    
+    # Recent orders
+    st.markdown("---")
+    st.markdown("#### Recent Orders")
+    st.dataframe(my_orders.sort_values('Time', ascending=False).head(10), use_container_width=True, hide_index=True)
+
+def render_dietitian_messages():
+    st.markdown("### 💬 Messages")
+    
+    df_messages = load_messages()
+    
+    # Compose
+    with st.expander("✉️ Send Message to Admin", expanded=False):
+        subject = st.text_input("Subject")
+        body = st.text_area("Message", height=100)
+        
+        if st.button("📤 Send"):
+            if subject and body:
+                if send_message(
+                    st.session_state.user_email,
+                    "dietitian",
+                    "admin@natuvisio.com",
+                    "admin",
+                    subject,
+                    body
+                ):
+                    st.success("Message sent!")
+                    st.rerun()
+    
+    # Display
+    st.markdown("---")
+    st.markdown("#### 📨 My Messages")
+    
+    if df_messages.empty:
+        st.info("No messages")
+    else:
+        my_messages = df_messages[
+            (df_messages['To_User'] == st.session_state.user_email) |
+            (df_messages['From_User'] == st.session_state.user_email)
+        ].sort_values('Time', ascending=False)
+        
+        for idx, msg in my_messages.iterrows():
+            is_from_me = msg['From_User'] == st.session_state.user_email
+            card_class = "message-from-user" if is_from_me else "message-from-admin"
+            
+            st.markdown(f"""
+            <div class="message-card {card_class}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>{"To: Admin" if is_from_me else "From: Admin"}</strong>
+                    <span style="font-size: 11px; opacity: 0.6;">{msg['Time']}</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">{msg['Subject']}</div>
+                <div style="font-size: 12px; opacity: 0.8;">{msg['Body']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if not is_from_me and msg['Read'] == 'No':
+                if st.button("Mark as Read", key=f"read_{msg['Message_ID']}"):
+                    mark_message_read(msg['Message_ID'])
+                    st.rerun()
+
+def render_dietitian_activity():
+    st.markdown("### 📜 My Activity Logs")
+    
+    df_logs = pd.read_csv(CSV_LOGS) if os.path.exists(CSV_LOGS) else pd.DataFrame()
+    
+    if df_logs.empty:
+        st.info("No activity yet")
+        return
+    
+    my_logs = df_logs[df_logs['User'] == st.session_state.user_email].sort_values('Time', ascending=False)
+    
+    if my_logs.empty:
+        st.info("No activity logged yet")
+    else:
+        st.dataframe(my_logs, use_container_width=True, hide_index=True)
+
+# ============================================================================
+# 11. MAIN ROUTING
 # ============================================================================
 
 if __name__ == "__main__":
@@ -1601,3 +1338,5 @@ if __name__ == "__main__":
             admin_dashboard()
         elif st.session_state.user_role == "partner":
             partner_dashboard()
+        elif st.session_state.user_role == "dietitian":
+            dietitian_dashboard()
