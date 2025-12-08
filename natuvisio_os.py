@@ -95,6 +95,7 @@ PRODUCT_DB = {
 # ============================================================================
 
 def init_databases():
+    """Ensure all CSV ledgers exist with correct headers"""
     if not os.path.exists(CSV_DISPATCH):
         pd.DataFrame(columns=[
             "Order_ID", "Time", "Brand", "Customer", "Phone", "Address",
@@ -243,7 +244,7 @@ def load_css():
         }}
         
         /* FOOTER */
-        .legal-footer {
+        .legal-footer {{
             margin-top: 50px;
             padding: 20px;
             border-top: 1px solid rgba(0,0,0,0.1);
@@ -251,7 +252,7 @@ def load_css():
             font-size: 11px;
             color: #718096;
             font-family: 'Inter', sans-serif;
-        }
+        }}
 
         #MainMenu, header, footer {{ visibility: hidden; }}
     </style>
