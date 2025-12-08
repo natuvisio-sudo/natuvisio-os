@@ -3,11 +3,11 @@ import pandas as pd
 import os
 import io
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO ADMIN OS - V9.0 (RETINA EDITION)
+# 🏔️ NATUVISIO ADMIN OS - V10.0 (FINANCIAL COMPLIANCE EDITION)
 # ============================================================================
 
 st.set_page_config(
@@ -43,6 +43,9 @@ LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v176
 BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
 
 # --- BUSINESS LOGIC ---
+# VAT (KDV) Rate on Commissions
+KDV_RATE = 0.20 
+
 BRAND_CONTRACTS = {
     "HAKI HEAL": {
         "commission": 0.15,
@@ -103,13 +106,14 @@ def init_databases():
     if not os.path.exists(CSV_FINANCE):
         pd.DataFrame(columns=[
             "Order_ID", "Time", "Brand", "Total_Sale", "Commission_Rate",
-            "Commission_Amt", "Payable_To_Brand", "Invoice_Ref", "Payment_Status"
+            "Commission_Amt", "KDV_Amt", "Total_Deduction", "Payable_To_Brand", 
+            "Invoice_Ref", "Payment_Status"
         ]).to_csv(CSV_FINANCE, index=False)
 
     if not os.path.exists(CSV_INVOICES):
         pd.DataFrame(columns=[
-            "Invoice_Ref", "Date", "Brand", "Total_Commission", "KDV", 
-            "Total_Due", "Sent_Status", "Paid_Status"
+            "Invoice_Ref", "Date", "Brand", "Total_Commission", "Total_KDV", 
+            "Total_Invoice_Amt", "Order_Count", "Sent_Status", "Paid_Status", "Notes"
         ]).to_csv(CSV_INVOICES, index=False)
 
     if not os.path.exists(CSV_PAYOUTS):
@@ -148,7 +152,7 @@ def log_action(action, user, details):
     }
     save_db(CSV_LOGS, df, new_log)
 
-def get_icon(name, color="#5b7354"):
+def get_icon(name):
     icons = {
         "mountain": "🏔️", "alert": "⚠️", "check": "✅", "bill": "🧾",
         "money": "💰", "clock": "⏳", "truck": "🚚"
@@ -162,9 +166,9 @@ def get_icon(name, color="#5b7354"):
 def load_css():
     st.markdown(f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Inter:wght@300;400;600&display=swap');
 
-        /* BACKGROUND - LIGHTENED FOR CONTRAST */
+        /* BACKGROUND */
         .stApp {{
             background-image: linear-gradient(rgba(245, 245, 240, 0.85), rgba(245, 245, 240, 0.9)), 
                               url("{BG_IMAGE}");
@@ -174,11 +178,11 @@ def load_css():
             color: #000000;
         }}
 
-        /* GLASS CONTAINERS - HALF OPACITY & BLACK TEXT */
+        /* GLASS CONTAINERS */
         .glass-card {{
-            background: rgba(255, 255, 255, 0.55); /* Half Opacity */
+            background: rgba(255, 255, 255, 0.65);
             backdrop-filter: blur(24px);
-            border: 1px solid rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             border-radius: 16px;
             padding: 24px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -199,6 +203,7 @@ def load_css():
         }}
         
         /* METRICS */
+        .metric-container {{ text-align: center; padding: 10px; }}
         .metric-value {{
             font-family: 'Space Grotesk';
             font-size: 32px;
@@ -214,7 +219,7 @@ def load_css():
             font-weight: 700;
         }}
 
-        /* BUTTONS - HIGH CONTRAST */
+        /* BUTTONS */
         div.stButton > button {{
             background: #2f855a !important;
             color: white !important;
@@ -229,7 +234,7 @@ def load_css():
             transform: translateY(-1px);
         }}
 
-        /* INPUTS - CLEAR WHITE BG */
+        /* INPUTS */
         .stTextInput>div>div>input, .stSelectbox>div>div>div, .stNumberInput>div>div>input, .stTextArea>div>div>textarea {{
             background: #ffffff !important;
             border: 1px solid #cbd5e0 !important;
@@ -239,8 +244,15 @@ def load_css():
         }}
         
         /* ALERTS */
-        .status-alert-red {{ border-left: 5px solid #E53E3E; background: rgba(254, 215, 215, 0.7); }}
-        .status-alert-green {{ border-left: 5px solid #38A169; background: rgba(198, 246, 213, 0.7); }}
+        .status-alert-red {{ border-left: 5px solid #E53E3E; background: rgba(254, 215, 215, 0.5); }}
+        .status-alert-green {{ border-left: 5px solid #38A169; background: rgba(198, 246, 213, 0.5); }}
+        
+        /* DATE PICKER CUSTOM */
+        input[type="date"] {{
+            border-radius: 8px;
+            border: 1px solid #cbd5e0;
+            padding: 8px;
+        }}
 
         #MainMenu, header, footer {{ visibility: hidden; }}
     </style>
@@ -272,11 +284,10 @@ def login_view():
         <div class="glass-card" style="text-align: center; padding: 40px;">
             <div style="font-size: 50px; margin-bottom: 20px;">🌿</div>
             <h2 style="margin-bottom: 10px;">NATUVISIO BRIDGE</h2>
-            <p style="color: #4a5568; font-weight: 600; font-size: 12px; margin-bottom: 30px;">SECURE LOGISTICS OS</p>
+            <p style="color: #4a5568; font-weight: 600; font-size: 12px; margin-bottom: 30px;">SECURE LOGISTICS OPERATING SYSTEM</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Login Form
         role = st.selectbox("Giriş Türü", ["Yönetici (Admin)", "Marka Partneri"], key="login_role_select")
         
         if role == "Marka Partneri":
@@ -324,22 +335,71 @@ def admin_dashboard():
             st.rerun()
     st.markdown("---")
 
-    # Metrics Overview
+    # --- DATE RANGE FILTER (NEW) ---
+    c_date1, c_date2, c_gap = st.columns([2, 2, 4])
+    with c_date1:
+        start_date = st.date_input("Başlangıç Tarihi", value=datetime.now() - timedelta(days=30))
+    with c_date2:
+        end_date = st.date_input("Bitiş Tarihi", value=datetime.now())
+
+    # --- METRICS ---
     df_disp = get_db(CSV_DISPATCH)
     df_fin = get_db(CSV_FINANCE)
     
-    if not df_disp.empty and not df_fin.empty:
-        total_rev = df_fin['Total_Sale'].sum()
-        total_comm = df_fin['Commission_Amt'].sum()
-        pending_ops = len(df_disp[df_disp['Status'] == 'Pending'])
+    # Filter Data by Date
+    if not df_disp.empty:
+        df_disp['Time'] = pd.to_datetime(df_disp['Time'])
+        mask = (df_disp['Time'].dt.date >= start_date) & (df_disp['Time'].dt.date <= end_date)
+        df_disp = df_disp.loc[mask]
         
-        m1, m2, m3, m4 = st.columns(4)
-        with m1: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{len(df_disp)}</div><div class='metric-label'>TOPLAM SİPARİŞ</div></div>", unsafe_allow_html=True)
-        with m2: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{total_rev:,.0f}₺</div><div class='metric-label'>TOPLAM CİRO</div></div>", unsafe_allow_html=True)
-        with m3: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#2f855a;'>{total_comm:,.0f}₺</div><div class='metric-label'>KOMİSYON GELİRİ</div></div>", unsafe_allow_html=True)
-        with m4: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#c53030;'>{pending_ops}</div><div class='metric-label'>BEKLEYEN İŞLEM</div></div>", unsafe_allow_html=True)
+    if not df_fin.empty:
+        df_fin['Time'] = pd.to_datetime(df_fin['Time'])
+        mask_f = (df_fin['Time'].dt.date >= start_date) & (df_fin['Time'].dt.date <= end_date)
+        df_fin = df_fin.loc[mask_f]
 
-    # MASTER NAVIGATION
+    # Display Metrics
+    total_rev = df_fin['Total_Sale'].sum() if not df_fin.empty else 0
+    total_comm = df_fin['Commission_Amt'].sum() if not df_fin.empty else 0
+    pending_ops = len(df_disp[df_disp['Status'] == 'Pending']) if not df_disp.empty else 0
+    
+    m1, m2, m3, m4 = st.columns(4)
+    with m1: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{len(df_disp)}</div><div class='metric-label'>TOPLAM SİPARİŞ</div></div>", unsafe_allow_html=True)
+    with m2: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{total_rev:,.0f}₺</div><div class='metric-label'>TOPLAM CİRO</div></div>", unsafe_allow_html=True)
+    with m3: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#2f855a;'>{total_comm:,.0f}₺</div><div class='metric-label'>NET GELİR</div></div>", unsafe_allow_html=True)
+    with m4: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#c53030;'>{pending_ops}</div><div class='metric-label'>BEKLEYEN İŞLEM</div></div>", unsafe_allow_html=True)
+
+    # --- MARKALAR TRACKING TABLE (NEW) ---
+    st.markdown("### 📊 Marka Performans Özeti")
+    if not df_fin.empty:
+        # Group by Brand
+        brand_stats = df_fin.groupby('Brand').agg({
+            'Total_Sale': 'sum',
+            'Commission_Amt': 'sum',
+            'Payable_To_Brand': 'sum'
+        }).reset_index()
+        
+        # Calculate Unpaid Status
+        unpaid_stats = df_fin[df_fin['Payment_Status'] == 'Unpaid'].groupby('Brand')['Payable_To_Brand'].sum().reset_index()
+        unpaid_stats.columns = ['Brand', 'Bekleyen_Odeme']
+        
+        final_stats = pd.merge(brand_stats, unpaid_stats, on='Brand', how='left').fillna(0)
+        
+        st.dataframe(
+            final_stats,
+            column_config={
+                "Brand": "Marka",
+                "Total_Sale": st.column_config.NumberColumn("Toplam Satış", format="%d ₺"),
+                "Commission_Amt": st.column_config.NumberColumn("Natuvisio Komisyon", format="%d ₺"),
+                "Payable_To_Brand": st.column_config.NumberColumn("Toplam Hakediş", format="%d ₺"),
+                "Bekleyen_Odeme": st.column_config.NumberColumn("Ödenecek Tutar (Bekleyen)", format="%d ₺"),
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+    else:
+        st.info("Veri yok.")
+
+    # --- MASTER NAVIGATION ---
     tabs = st.tabs([
         "🚀 YENİ SEVKİYAT", 
         "🚀 SİPARİŞ TAKİBİ", 
@@ -379,11 +439,17 @@ def admin_dashboard():
             if st.button("➕ Sepete Ekle", key="dispatch_add_btn"):
                 p_data = PRODUCT_DB[act_brand][prod]
                 rate = BRAND_CONTRACTS[act_brand]["commission"]
+                
+                # Financial Calc
                 tot = p_data['price'] * qty
                 comm = tot * rate
+                kdv = comm * KDV_RATE # 20% KDV on Commission
+                deduction = comm + kdv
+                payable = tot - deduction
+                
                 st.session_state.cart.append({
                     "Brand": act_brand, "Product": prod, "Qty": qty, 
-                    "Total": tot, "Comm": comm, "Payable": tot - comm
+                    "Total": tot, "Comm": comm, "KDV": kdv, "Deduction": deduction, "Payable": payable
                 })
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
@@ -395,7 +461,12 @@ def admin_dashboard():
                 st.dataframe(cart_df[["Product", "Qty", "Total"]], hide_index=True)
                 
                 total_val = cart_df['Total'].sum()
+                total_deduct = cart_df['Deduction'].sum()
+                total_pay = cart_df['Payable'].sum()
+                
                 st.markdown(f"<h3 style='text-align:right'>{total_val:,.0f} TL</h3>", unsafe_allow_html=True)
+                st.caption(f"Komisyon + KDV Kesintisi: {total_deduct:,.2f} TL")
+                st.success(f"Markaya Ödenecek Net: {total_pay:,.2f} TL")
                 
                 if st.button("⚡ SİPARİŞİ ONAYLA", key="dispatch_confirm_btn"):
                     if cust_name and cust_phone:
@@ -417,7 +488,10 @@ def admin_dashboard():
                         save_db(CSV_FINANCE, f_df, {
                             "Order_ID": oid, "Time": datetime.now(), "Brand": act_brand,
                             "Total_Sale": total_val, "Commission_Rate": BRAND_CONTRACTS[act_brand]['commission'],
-                            "Commission_Amt": cart_df['Comm'].sum(), "Payable_To_Brand": cart_df['Payable'].sum(),
+                            "Commission_Amt": cart_df['Comm'].sum(), 
+                            "KDV_Amt": cart_df['KDV'].sum(),
+                            "Total_Deduction": total_deduct,
+                            "Payable_To_Brand": total_pay,
                             "Invoice_Ref": "", "Payment_Status": "Unpaid"
                         })
                         
@@ -475,12 +549,6 @@ def admin_dashboard():
                         st.markdown(f'<a href="{link}" target="_blank" style="text-decoration:none;"><button style="background:#25D366 !important; border:none; color:white; padding:8px 16px; border-radius:4px;">📲 WhatsApp Mesajı Oluştur</button></a>', unsafe_allow_html=True)
         else:
             st.success("Tüm bildirimler tamamlandı.")
-            
-        st.markdown("---")
-        st.markdown("#### 📦 Kargo Onayı Bekleyenler")
-        pending_ship = df[(df['Status'] == 'Notified') & (df['Tracking_Num'].isna())]
-        if not pending_ship.empty:
-            st.dataframe(pending_ship[['Order_ID', 'Brand', 'Customer', 'Items']])
 
     # --- 4. FATURA & ÖDEME (General) ---
     with tabs[3]:
@@ -488,12 +556,14 @@ def admin_dashboard():
         fin_df = get_db(CSV_FINANCE)
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown('<div class="glass-card"><h5>Tahsil Edilen (GMV)</h5>', unsafe_allow_html=True)
-            st.metric("Toplam Satış", f"{fin_df['Total_Sale'].sum():,.0f} TL")
+            st.markdown('<div class="glass-card"><h5>Toplam Satış Hacmi</h5>', unsafe_allow_html=True)
+            st.metric("GMV", f"{fin_df['Total_Sale'].sum():,.0f} TL")
             st.markdown("</div>", unsafe_allow_html=True)
         with c2:
-            st.markdown('<div class="glass-card"><h5>Markalara Ödenecek</h5>', unsafe_allow_html=True)
-            st.metric("Borç Bakiyesi", f"{fin_df['Payable_To_Brand'].sum():,.0f} TL")
+            st.markdown('<div class="glass-card"><h5>Markalara Ödenecek Toplam</h5>', unsafe_allow_html=True)
+            # Only unpaid
+            unpaid_total = fin_df[fin_df['Payment_Status'] == 'Unpaid']['Payable_To_Brand'].sum()
+            st.metric("Bekleyen Ödeme", f"{unpaid_total:,.0f} TL")
             st.markdown("</div>", unsafe_allow_html=True)
 
     # --- 5. MARKA ÖDEMELERİ (Payouts) ---
@@ -507,11 +577,10 @@ def admin_dashboard():
             
             # Calc Balance
             fin_df = get_db(CSV_FINANCE)
-            pay_df = get_db(CSV_PAYOUTS)
             
-            sales = fin_df[fin_df['Brand'] == p_brand]['Payable_To_Brand'].sum()
-            paid = pay_df[pay_df['Brand'] == p_brand]['Amount'].sum()
-            balance = sales - paid
+            # Sum of Payables for this brand where status is Unpaid
+            brand_unpaid_df = fin_df[(fin_df['Brand'] == p_brand) & (fin_df['Payment_Status'] == 'Unpaid')]
+            balance = brand_unpaid_df['Payable_To_Brand'].sum()
             
             st.metric("Ödenmesi Gereken Bakiye", f"{balance:,.2f} TL")
             st.caption(f"IBAN: {BRAND_CONTRACTS[p_brand]['iban']}")
@@ -520,25 +589,36 @@ def admin_dashboard():
             # Copyable Bank Explanation
             bank_exp = f"NATUVISIO ODEME {p_brand} {datetime.now().strftime('%m/%Y')}"
             st.code(bank_exp, language="text")
+            st.caption("Açıklama kısmına yukarıdaki kodu yapıştırınız.")
             
-            amt = st.number_input("Ödenecek Tutar", 0.0, float(balance) if balance > 0 else 0.0, key="payout_amt")
-            
-            if st.button("Ödemeyi Kaydet", key="payout_record_btn"):
-                if amt > 0:
+            if st.button("✅ Ödemeyi Onayla (Bakiyeyi Sıfırla)", key="confirm_payout_btn"):
+                if balance > 0:
                     pid = f"PAY-{datetime.now().strftime('%m%d%H%M')}"
                     pay_df = get_db(CSV_PAYOUTS)
                     save_db(CSV_PAYOUTS, pay_df, {
                         "Payout_ID": pid, "Time": datetime.now(), "Brand": p_brand,
-                        "Amount": amt, "Method": "Bank", "Notes": bank_exp
+                        "Amount": balance, "Method": "Bank", "Notes": bank_exp, "Reference": "Admin"
                     })
-                    log_action("ÖDEME", "Admin", f"{p_brand} ödemesi: {amt} TL")
-                    st.success("Ödeme Kaydedildi!")
+                    
+                    # Update Ledger Status to Paid
+                    for idx in brand_unpaid_df.index:
+                        fin_df.at[idx, 'Payment_Status'] = 'Paid'
+                    update_db(CSV_FINANCE, fin_df)
+                    
+                    log_action("ÖDEME", "Admin", f"{p_brand} ödemesi yapıldı: {balance} TL")
+                    st.balloons()
+                    st.success("Ödeme Başarıyla Kaydedildi!")
+                    time.sleep(2)
                     st.rerun()
+                else:
+                    st.info("Ödenecek bakiye bulunmuyor.")
             st.markdown("</div>", unsafe_allow_html=True)
             
         with c_pay_R:
             st.markdown("#### Ödeme Geçmişi")
-            st.dataframe(pay_df[pay_df['Brand'] == p_brand] if not pay_df.empty else pd.DataFrame(), use_container_width=True)
+            pay_hist = get_db(CSV_PAYOUTS)
+            if not pay_hist.empty:
+                st.dataframe(pay_hist[pay_hist['Brand'] == p_brand], use_container_width=True)
 
     # --- 6. MARKA FATURALANDIRMA (Invoicing) ---
     with tabs[5]:
@@ -546,13 +626,14 @@ def admin_dashboard():
         fin_df = get_db(CSV_FINANCE)
         inv_df = get_db(CSV_INVOICES)
         
-        # Identify uninvoiced orders
+        # Identify uninvoiced orders (Invoice_Ref is empty)
         pending_inv = fin_df[fin_df['Invoice_Ref'].isna() | (fin_df['Invoice_Ref'] == "")]
         
         c1, c2 = st.columns([2, 1])
         with c1:
+            st.markdown("#### Faturalandırılmamış İşlemler")
             if not pending_inv.empty:
-                st.dataframe(pending_inv[['Order_ID', 'Brand', 'Commission_Amt']])
+                st.dataframe(pending_inv[['Order_ID', 'Brand', 'Commission_Amt', 'KDV_Amt', 'Total_Deduction']], use_container_width=True)
             else:
                 st.info("Faturalandırılacak işlem yok.")
                 
@@ -560,32 +641,45 @@ def admin_dashboard():
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             t_brand = st.selectbox("Fatura Kesilecek Marka", list(BRAND_CONTRACTS.keys()), key="invoice_brand_select")
             
-            if st.button("Fatura Oluştur (Draft)", key="invoice_gen_btn"):
-                items = pending_inv[pending_inv['Brand'] == t_brand]
-                if not items.empty:
+            # Filter pending items for selected brand
+            items = pending_inv[pending_inv['Brand'] == t_brand]
+            
+            if not items.empty:
+                comm_sum = items['Commission_Amt'].sum()
+                kdv_sum = items['KDV_Amt'].sum()
+                total_invoice = comm_sum + kdv_sum
+                
+                st.write(f"**Komisyon Toplam:** {comm_sum:,.2f} TL")
+                st.write(f"**KDV (%20):** {kdv_sum:,.2f} TL")
+                st.markdown(f"### Toplam Fatura: {total_invoice:,.2f} TL")
+                
+                # Copyable Explanation
+                inv_desc = f"Hizmet Bedeli - {t_brand} - {datetime.now().strftime('%B %Y')}"
+                st.code(inv_desc, language="text")
+                
+                if st.button("✅ Faturayı Kestim / Gönderdim", key="invoice_sent_btn"):
                     ref = f"INV-{datetime.now().strftime('%Y%m')}-{t_brand[:3]}"
-                    comm_tot = items['Commission_Amt'].sum()
-                    kdv = comm_tot * 0.20
                     
                     save_db(CSV_INVOICES, inv_df, {
                         "Invoice_Ref": ref, "Date": datetime.now().date(), "Brand": t_brand,
-                        "Total_Commission": comm_tot, "KDV": kdv, "Total_Due": comm_tot + kdv,
-                        "Sent_Status": "Pending", "Paid_Status": "Unpaid"
+                        "Total_Commission": comm_sum, "Total_KDV": kdv_sum, "Total_Invoice_Amt": total_invoice,
+                        "Order_Count": len(items), "Sent_Status": "Sent", "Paid_Status": "Unpaid", "Notes": inv_desc
                     })
                     
-                    # Update finance ledger
+                    # Update finance ledger with Invoice Ref
                     for idx in items.index:
                         fin_df.at[idx, 'Invoice_Ref'] = ref
                     update_db(CSV_FINANCE, fin_df)
                     
-                    log_action("FATURA", "Admin", f"{ref} oluşturuldu")
-                    st.success(f"{ref} oluşturuldu!")
+                    log_action("FATURA", "Admin", f"{ref} faturası kesildi")
+                    st.success(f"Fatura {ref} sisteme işlendi!")
+                    time.sleep(2)
                     st.rerun()
-                else:
-                    st.warning("Bu marka için bekleyen komisyon yok.")
+            else:
+                st.warning("Bu marka için bekleyen işlem yok.")
             st.markdown("</div>", unsafe_allow_html=True)
             
-        st.markdown("#### Fatura Kayıtları")
+        st.markdown("#### Fatura Kayıtları (Sent Invoices)")
         st.dataframe(get_db(CSV_INVOICES), use_container_width=True)
 
     # --- 7. TÜM SİPARİŞLER (Archive) ---
