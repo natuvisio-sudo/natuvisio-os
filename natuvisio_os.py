@@ -260,7 +260,66 @@ def load_css():
     """, unsafe_allow_html=True)
 
 # ============================================================================
-# 4. ADMIN DASHBOARD
+# 4. SESSION STATE MANAGEMENT
+# ============================================================================
+
+if 'page' not in st.session_state: st.session_state.page = 'login'
+if 'user_role' not in st.session_state: st.session_state.user_role = None
+if 'logged_brand' not in st.session_state: st.session_state.logged_brand = None
+if 'cart' not in st.session_state: st.session_state.cart = []
+if 'selected_brand_lock' not in st.session_state: st.session_state.selected_brand_lock = None
+# --- FIX: Initialize login flags ---
+if 'admin_logged_in' not in st.session_state: st.session_state.admin_logged_in = False
+if 'is_partner_logged_in' not in st.session_state: st.session_state.is_partner_logged_in = False
+
+# ============================================================================
+# 5. VIEW: LOGIN SCREEN
+# ============================================================================
+
+def login_view():
+    load_css()
+    st.markdown("<div style='height: 15vh'></div>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; padding: 40px;">
+            <div style="font-size: 40px; margin-bottom: 20px;">{get_icon('mountain', '#4ECDC4')}</div>
+            <h2 style="margin-bottom: 10px;">NATUVISIO BRIDGE</h2>
+            <p style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 30px;">SECURE LOGISTICS OPERATING SYSTEM</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Login Form
+        role = st.selectbox("Select Role", ["Admin HQ", "Brand Partner"])
+        
+        if role == "Brand Partner":
+            brand_user = st.selectbox("Select Brand", list(BRAND_CREDENTIALS.keys()))
+        
+        pwd = st.text_input("Access Key", type="password")
+        
+        if st.button("AUTHENTICATE", use_container_width=True):
+            if role == "Admin HQ":
+                if pwd == ADMIN_PASS:
+                    st.session_state.user_role = 'ADMIN'
+                    st.session_state.admin_logged_in = True # Set flag
+                    st.session_state.page = 'admin_dashboard'
+                    st.rerun()
+                else:
+                    st.error("Invalid Admin Key")
+            
+            elif role == "Brand Partner":
+                if pwd == BRAND_CREDENTIALS.get(brand_user):
+                    st.session_state.user_role = 'PARTNER'
+                    st.session_state.logged_brand = brand_user
+                    st.session_state.is_partner_logged_in = True # Set flag
+                    st.session_state.page = 'partner_dashboard'
+                    st.rerun()
+                else:
+                    st.error("Invalid Brand Key")
+
+# ============================================================================
+# 6. VIEW: ADMIN DASHBOARD
 # ============================================================================
 
 def admin_dashboard():
@@ -275,6 +334,7 @@ def admin_dashboard():
     with c2:
         if st.button("🚪 LOGOUT"):
             st.session_state.admin_logged_in = False
+            st.session_state.page = 'login'
             st.rerun()
     st.markdown("---")
 
