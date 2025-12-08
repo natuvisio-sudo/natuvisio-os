@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import urllib.parse
 
 # ============================================================================
-# 🏔️ NATUVISIO ADMIN OS - V8.0 (ENTERPRISE EDITION)
+# 🏔️ NATUVISIO ADMIN OS - V9.0 (RETINA EDITION)
 # ============================================================================
 
 st.set_page_config(
@@ -93,7 +93,6 @@ PRODUCT_DB = {
 
 def init_databases():
     """Ensure all CSV ledgers exist with correct headers"""
-    # Dispatch: Physical movement
     if not os.path.exists(CSV_DISPATCH):
         pd.DataFrame(columns=[
             "Order_ID", "Time", "Brand", "Customer", "Phone", "Address",
@@ -101,28 +100,24 @@ def init_databases():
             "Notes", "Priority"
         ]).to_csv(CSV_DISPATCH, index=False)
     
-    # Finance: Transaction split per order
     if not os.path.exists(CSV_FINANCE):
         pd.DataFrame(columns=[
             "Order_ID", "Time", "Brand", "Total_Sale", "Commission_Rate",
             "Commission_Amt", "Payable_To_Brand", "Invoice_Ref", "Payment_Status"
         ]).to_csv(CSV_FINANCE, index=False)
 
-    # Invoices: Official Commission Invoices
     if not os.path.exists(CSV_INVOICES):
         pd.DataFrame(columns=[
             "Invoice_Ref", "Date", "Brand", "Total_Commission", "KDV", 
             "Total_Due", "Sent_Status", "Paid_Status"
         ]).to_csv(CSV_INVOICES, index=False)
 
-    # Payouts: Bank Transfers to Brands
     if not os.path.exists(CSV_PAYOUTS):
         pd.DataFrame(columns=[
             "Payout_ID", "Time", "Brand", "Amount", "Method", 
             "Reference", "Notes"
         ]).to_csv(CSV_PAYOUTS, index=False)
 
-    # Logs: Audit Trail
     if not os.path.exists(CSV_LOGS):
         pd.DataFrame(columns=[
             "Log_ID", "Time", "Action", "User", "Details"
@@ -154,7 +149,6 @@ def log_action(action, user, details):
     save_db(CSV_LOGS, df, new_log)
 
 def get_icon(name, color="#5b7354"):
-    # Simplified icons for UI
     icons = {
         "mountain": "🏔️", "alert": "⚠️", "check": "✅", "bill": "🧾",
         "money": "💰", "clock": "⏳", "truck": "🚚"
@@ -162,98 +156,91 @@ def get_icon(name, color="#5b7354"):
     return icons.get(name, "📦")
 
 # ============================================================================
-# 3. PREMIUM DESIGN SYSTEM (CSS)
+# 3. PREMIUM DESIGN SYSTEM (RETINA OPTIMIZED)
 # ============================================================================
 
 def load_css():
     st.markdown(f"""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Inter:wght@300;400;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Inter:wght@400;600;700&display=swap');
 
-        /* RESET & BACKGROUND */
+        /* BACKGROUND - LIGHTENED FOR CONTRAST */
         .stApp {{
-            background-image: linear-gradient(rgba(240, 242, 240, 0.95), rgba(240, 242, 240, 0.98)), 
+            background-image: linear-gradient(rgba(245, 245, 240, 0.85), rgba(245, 245, 240, 0.9)), 
                               url("{BG_IMAGE}");
             background-size: cover;
             background-attachment: fixed;
             font-family: 'Inter', sans-serif;
-            color: #1a202c;
+            color: #000000;
         }}
 
-        /* GLASS CONTAINERS - CLEAR VIEW PALETTE */
+        /* GLASS CONTAINERS - HALF OPACITY & BLACK TEXT */
         .glass-card {{
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.55); /* Half Opacity */
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 16px;
             padding: 24px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             margin-bottom: 20px;
+            color: #000000 !important;
+        }}
+        
+        .glass-card h4, .glass-card h3, .glass-card div {{
+            color: #000000 !important;
         }}
 
         /* TYPOGRAPHY */
         h1, h2, h3, h4 {{
             font-family: 'Space Grotesk', sans-serif !important;
-            color: #2d3748 !important;
-            font-weight: 700 !important;
-            letter-spacing: -0.02em !important;
+            color: #1a1a1a !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.5px !important;
         }}
         
-        /* METRIC CARDS */
-        .metric-container {{
-            text-align: center;
-            padding: 10px;
-        }}
+        /* METRICS */
         .metric-value {{
             font-family: 'Space Grotesk';
-            font-size: 28px;
-            font-weight: 700;
-            color: #2f855a;
+            font-size: 32px;
+            font-weight: 800;
+            color: #000000;
+            letter-spacing: -1px;
         }}
         .metric-label {{
             font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #718096;
-            font-weight: 600;
+            letter-spacing: 1.5px;
+            color: #4a5568;
+            font-weight: 700;
         }}
 
-        /* BUTTONS */
+        /* BUTTONS - HIGH CONTRAST */
         div.stButton > button {{
             background: #2f855a !important;
             color: white !important;
             border: none !important;
             border-radius: 8px !important;
-            padding: 10px 24px !important;
-            font-weight: 600 !important;
-            transition: all 0.2s ease !important;
-            box-shadow: 0 2px 5px rgba(47, 133, 90, 0.2) !important;
+            padding: 12px 24px !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 6px rgba(47, 133, 90, 0.2) !important;
         }}
         div.stButton > button:hover {{
             background: #276749 !important;
             transform: translateY(-1px);
         }}
 
-        /* INPUTS */
-        .stTextInput>div>div>input {{
-            background: white !important;
-            border: 1px solid #e2e8f0 !important;
-            color: #2d3748 !important;
-            border-radius: 6px !important;
+        /* INPUTS - CLEAR WHITE BG */
+        .stTextInput>div>div>input, .stSelectbox>div>div>div, .stNumberInput>div>div>input, .stTextArea>div>div>textarea {{
+            background: #ffffff !important;
+            border: 1px solid #cbd5e0 !important;
+            color: #000000 !important;
+            border-radius: 8px !important;
+            font-weight: 500 !important;
         }}
-
-        /* TIMELINE */
-        .status-badge {{
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }}
-        .status-pending {{ background: #FEFCBF; color: #744210; }}
-        .status-notified {{ background: #BEE3F8; color: #2C5282; }}
-        .status-dispatched {{ background: #C6F6D5; color: #22543D; }}
-        .status-completed {{ background: #E9D8FD; color: #553C9A; }}
+        
+        /* ALERTS */
+        .status-alert-red {{ border-left: 5px solid #E53E3E; background: rgba(254, 215, 215, 0.7); }}
+        .status-alert-green {{ border-left: 5px solid #38A169; background: rgba(198, 246, 213, 0.7); }}
 
         #MainMenu, header, footer {{ visibility: hidden; }}
     </style>
@@ -268,7 +255,6 @@ if 'user_role' not in st.session_state: st.session_state.user_role = None
 if 'logged_brand' not in st.session_state: st.session_state.logged_brand = None
 if 'cart' not in st.session_state: st.session_state.cart = []
 if 'selected_brand_lock' not in st.session_state: st.session_state.selected_brand_lock = None
-# --- FIX: Initialize login flags ---
 if 'admin_logged_in' not in st.session_state: st.session_state.admin_logged_in = False
 if 'is_partner_logged_in' not in st.session_state: st.session_state.is_partner_logged_in = False
 
@@ -284,39 +270,39 @@ def login_view():
     with col2:
         st.markdown(f"""
         <div class="glass-card" style="text-align: center; padding: 40px;">
-            <div style="font-size: 40px; margin-bottom: 20px;">{get_icon('mountain', '#4ECDC4')}</div>
+            <div style="font-size: 50px; margin-bottom: 20px;">🌿</div>
             <h2 style="margin-bottom: 10px;">NATUVISIO BRIDGE</h2>
-            <p style="color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 30px;">SECURE LOGISTICS OPERATING SYSTEM</p>
+            <p style="color: #4a5568; font-weight: 600; font-size: 12px; margin-bottom: 30px;">SECURE LOGISTICS OS</p>
         </div>
         """, unsafe_allow_html=True)
         
         # Login Form
-        role = st.selectbox("Select Role", ["Admin HQ", "Brand Partner"])
+        role = st.selectbox("Giriş Türü", ["Yönetici (Admin)", "Marka Partneri"], key="login_role_select")
         
-        if role == "Brand Partner":
-            brand_user = st.selectbox("Select Brand", list(BRAND_CREDENTIALS.keys()))
+        if role == "Marka Partneri":
+            brand_user = st.selectbox("Marka Seçiniz", list(BRAND_CREDENTIALS.keys()), key="login_brand_select")
         
-        pwd = st.text_input("Access Key", type="password")
+        pwd = st.text_input("Erişim Şifresi", type="password", key="login_password")
         
-        if st.button("AUTHENTICATE", use_container_width=True):
-            if role == "Admin HQ":
+        if st.button("GİRİŞ YAP", use_container_width=True, key="login_btn"):
+            if role == "Yönetici (Admin)":
                 if pwd == ADMIN_PASS:
                     st.session_state.user_role = 'ADMIN'
-                    st.session_state.admin_logged_in = True # Set flag
+                    st.session_state.admin_logged_in = True
                     st.session_state.page = 'admin_dashboard'
                     st.rerun()
                 else:
-                    st.error("Invalid Admin Key")
+                    st.error("Hatalı Yönetici Şifresi")
             
-            elif role == "Brand Partner":
+            elif role == "Marka Partneri":
                 if pwd == BRAND_CREDENTIALS.get(brand_user):
                     st.session_state.user_role = 'PARTNER'
                     st.session_state.logged_brand = brand_user
-                    st.session_state.is_partner_logged_in = True # Set flag
+                    st.session_state.is_partner_logged_in = True
                     st.session_state.page = 'partner_dashboard'
                     st.rerun()
                 else:
-                    st.error("Invalid Brand Key")
+                    st.error("Hatalı Marka Şifresi")
 
 # ============================================================================
 # 6. VIEW: ADMIN DASHBOARD
@@ -329,10 +315,10 @@ def admin_dashboard():
     # Header
     c1, c2 = st.columns([6,1])
     with c1: 
-        st.markdown(f"## 🏔️ NATUVISIO ADMIN OS")
-        st.markdown("**Role:** Master Operator | **Status:** Online")
+        st.markdown(f"## 🏔️ YÖNETİM MERKEZİ")
+        st.markdown("**Yetki:** Master Operator | **Durum:** Çevrimiçi")
     with c2:
-        if st.button("🚪 LOGOUT"):
+        if st.button("ÇIKIŞ YAP", key="admin_logout"):
             st.session_state.admin_logged_in = False
             st.session_state.page = 'login'
             st.rerun()
@@ -375,22 +361,22 @@ def admin_dashboard():
             st.markdown('<div class="glass-card"><h4>📝 Sipariş Oluştur</h4>', unsafe_allow_html=True)
             if 'cart' not in st.session_state: st.session_state.cart = []
             
-            cust_name = st.text_input("Müşteri Adı Soyadı")
-            cust_phone = st.text_input("Telefon (905...)")
-            cust_addr = st.text_area("Adres")
+            cust_name = st.text_input("Müşteri Adı Soyadı", key="dispatch_cust_name")
+            cust_phone = st.text_input("Telefon (905...)", key="dispatch_cust_phone")
+            cust_addr = st.text_area("Adres", key="dispatch_cust_addr")
             
             st.markdown("---")
             if st.session_state.cart:
                 act_brand = st.session_state.cart[0]['Brand']
                 st.info(f"Kilitli Marka: {act_brand}")
             else:
-                act_brand = st.selectbox("Marka Seçiniz", list(BRAND_CONTRACTS.keys()))
+                act_brand = st.selectbox("Marka Seçiniz", list(BRAND_CONTRACTS.keys()), key="dispatch_brand_select")
             
             cp, cq = st.columns([3, 1])
-            with cp: prod = st.selectbox("Ürün", list(PRODUCT_DB[act_brand].keys()))
-            with cq: qty = st.number_input("Adet", 1, value=1)
+            with cp: prod = st.selectbox("Ürün", list(PRODUCT_DB[act_brand].keys()), key="dispatch_prod_select")
+            with cq: qty = st.number_input("Adet", 1, value=1, key="dispatch_qty")
             
-            if st.button("➕ Sepete Ekle"):
+            if st.button("➕ Sepete Ekle", key="dispatch_add_btn"):
                 p_data = PRODUCT_DB[act_brand][prod]
                 rate = BRAND_CONTRACTS[act_brand]["commission"]
                 tot = p_data['price'] * qty
@@ -411,7 +397,7 @@ def admin_dashboard():
                 total_val = cart_df['Total'].sum()
                 st.markdown(f"<h3 style='text-align:right'>{total_val:,.0f} TL</h3>", unsafe_allow_html=True)
                 
-                if st.button("⚡ SİPARİŞİ ONAYLA"):
+                if st.button("⚡ SİPARİŞİ ONAYLA", key="dispatch_confirm_btn"):
                     if cust_name and cust_phone:
                         oid = f"NV-{datetime.now().strftime('%m%d%H%M%S')}"
                         items = ", ".join([f"{x['Product']} (x{x['Qty']})" for x in st.session_state.cart])
@@ -442,7 +428,7 @@ def admin_dashboard():
                     else:
                         st.error("Müşteri bilgileri eksik.")
                 
-                if st.button("Sepeti Temizle"):
+                if st.button("Sepeti Temizle", key="dispatch_clear_btn"):
                     st.session_state.cart = []
                     st.rerun()
             else:
@@ -469,14 +455,13 @@ def admin_dashboard():
             st.warning(f"⚠️ {len(pending_ntf)} Sipariş Bildirim Bekliyor")
             for idx, row in pending_ntf.iterrows():
                 with st.container():
-                    st.markdown(f"""<div class='glass-card' style='border-left: 5px solid #e53e3e;'>
+                    st.markdown(f"""<div class='glass-card status-alert-red'>
                         <b>{row['Order_ID']}</b> | {row['Brand']} | {row['Customer']}
                     </div>""", unsafe_allow_html=True)
                     
                     c1, c2 = st.columns([1, 4])
                     with c1:
-                        if st.button("✅ Bildirildi İşaretle", key=f"ntf_{idx}"):
-                            # Use boolean indexing to update
+                        if st.button("✅ Bildirildi İşaretle", key=f"ops_ntf_{idx}"):
                             mask = df['Order_ID'] == row['Order_ID']
                             df.loc[mask, 'WhatsApp_Sent'] = 'YES'
                             df.loc[mask, 'Status'] = 'Notified'
@@ -518,7 +503,7 @@ def admin_dashboard():
         
         with c_pay_L:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            p_brand = st.selectbox("Marka Seçiniz", list(BRAND_CONTRACTS.keys()))
+            p_brand = st.selectbox("Marka Seçiniz", list(BRAND_CONTRACTS.keys()), key="payout_brand_select")
             
             # Calc Balance
             fin_df = get_db(CSV_FINANCE)
@@ -536,9 +521,9 @@ def admin_dashboard():
             bank_exp = f"NATUVISIO ODEME {p_brand} {datetime.now().strftime('%m/%Y')}"
             st.code(bank_exp, language="text")
             
-            amt = st.number_input("Ödenecek Tutar", 0.0, float(balance) if balance > 0 else 0.0)
+            amt = st.number_input("Ödenecek Tutar", 0.0, float(balance) if balance > 0 else 0.0, key="payout_amt")
             
-            if st.button("Ödemeyi Kaydet"):
+            if st.button("Ödemeyi Kaydet", key="payout_record_btn"):
                 if amt > 0:
                     pid = f"PAY-{datetime.now().strftime('%m%d%H%M')}"
                     pay_df = get_db(CSV_PAYOUTS)
@@ -573,9 +558,9 @@ def admin_dashboard():
                 
         with c2:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            t_brand = st.selectbox("Fatura Kesilecek Marka", list(BRAND_CONTRACTS.keys()))
+            t_brand = st.selectbox("Fatura Kesilecek Marka", list(BRAND_CONTRACTS.keys()), key="invoice_brand_select")
             
-            if st.button("Fatura Oluştur (Draft)"):
+            if st.button("Fatura Oluştur (Draft)", key="invoice_gen_btn"):
                 items = pending_inv[pending_inv['Brand'] == t_brand]
                 if not items.empty:
                     ref = f"INV-{datetime.now().strftime('%Y%m')}-{t_brand[:3]}"
@@ -622,7 +607,6 @@ def admin_dashboard():
             with t2:
                 st.line_chart(df.groupby('Time')['Total_Value'].sum())
             with t3:
-                # Need to parse items string for robust product analytics, simple count for now
                 st.info("Ürün bazlı detaylar için veritabanı genişletiliyor...")
             with t4:
                 st.bar_chart(fin.groupby('Brand')['Commission_Amt'].sum())
@@ -633,7 +617,7 @@ def admin_dashboard():
     with tabs[8]:
         st.markdown("### ❔ Operasyon Rehberi (SOP)")
         with st.expander("1. Sipariş Nasıl Girilir?", expanded=True):
-            st.write("1. 'YENİ SEVKİYAT' sekmesine gidin.\n2. Müşteri bilgilerini girin.\n3. Sepete ürünleri ekleyin.\n4. 'FLASH DISPATCH' butonuna basın.")
+            st.write("1. 'YENİ SEVKİYAT' sekmesine gidin.\n2. Müşteri bilgilerini girin.\n3. Sepete ürünleri ekleyin.\n4. 'SİPARİŞİ ONAYLA' butonuna basın.")
         with st.expander("2. Marka Ödemesi Nasıl Yapılır?"):
             st.write("1. 'MARKA ÖDEMELERİ' sekmesine gidin.\n2. Bakiyeyi kontrol edin.\n3. Banka açıklamasını kopyalayıp transferi yapın.\n4. Tutarı sisteme girip kaydedin.")
         with st.expander("3. Komisyon Faturası Ne Zaman Kesilir?"):
@@ -673,7 +657,7 @@ def partner_dashboard():
     c1, c2 = st.columns([6,1])
     with c1: st.markdown(f"## 📦 {brand} PORTAL")
     with c2: 
-        if st.button("Çıkış"):
+        if st.button("Çıkış", key="partner_logout"):
             st.session_state.is_partner_logged_in = False
             st.rerun()
     st.markdown("---")
