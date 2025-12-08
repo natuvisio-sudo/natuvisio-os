@@ -5,9 +5,10 @@ import io
 import time
 from datetime import datetime, timedelta, date
 import urllib.parse
+import plotly.express as px  # NEW: Premium Charts
 
 # ============================================================================
-# 🏔️ NATUVISIO ADMIN OS - V10.0 (FINANCIAL COMPLIANCE EDITION)
+# 🏔️ NATUVISIO ADMIN OS - V12.0 (PREMIUM ANALYTICS & LEGAL EDITION)
 # ============================================================================
 
 st.set_page_config(
@@ -43,7 +44,6 @@ LOGO_URL = "https://res.cloudinary.com/deb1j92hy/image/upload/f_auto,q_auto/v176
 BG_IMAGE = "https://res.cloudinary.com/deb1j92hy/image/upload/v1764848571/man-standing-brown-mountain-range_elqddb.webp"
 
 # --- BUSINESS LOGIC ---
-# VAT (KDV) Rate on Commissions
 KDV_RATE = 0.20 
 
 BRAND_CONTRACTS = {
@@ -95,7 +95,6 @@ PRODUCT_DB = {
 # ============================================================================
 
 def init_databases():
-    """Ensure all CSV ledgers exist with correct headers"""
     if not os.path.exists(CSV_DISPATCH):
         pd.DataFrame(columns=[
             "Order_ID", "Time", "Brand", "Customer", "Phone", "Address",
@@ -152,7 +151,7 @@ def log_action(action, user, details):
     }
     save_db(CSV_LOGS, df, new_log)
 
-def get_icon(name):
+def get_icon(name, color="#5b7354"):
     icons = {
         "mountain": "🏔️", "alert": "⚠️", "check": "✅", "bill": "🧾",
         "money": "💰", "clock": "⏳", "truck": "🚚"
@@ -160,7 +159,7 @@ def get_icon(name):
     return icons.get(name, "📦")
 
 # ============================================================================
-# 3. PREMIUM DESIGN SYSTEM (RETINA OPTIMIZED)
+# 3. PREMIUM DESIGN SYSTEM
 # ============================================================================
 
 def load_css():
@@ -170,7 +169,7 @@ def load_css():
 
         /* BACKGROUND */
         .stApp {{
-            background-image: linear-gradient(rgba(245, 245, 240, 0.85), rgba(245, 245, 240, 0.9)), 
+            background-image: linear-gradient(rgba(245, 245, 240, 0.90), rgba(245, 245, 240, 0.95)), 
                               url("{BG_IMAGE}");
             background-size: cover;
             background-attachment: fixed;
@@ -243,16 +242,16 @@ def load_css():
             font-weight: 500 !important;
         }}
         
-        /* ALERTS */
-        .status-alert-red {{ border-left: 5px solid #E53E3E; background: rgba(254, 215, 215, 0.5); }}
-        .status-alert-green {{ border-left: 5px solid #38A169; background: rgba(198, 246, 213, 0.5); }}
-        
-        /* DATE PICKER CUSTOM */
-        input[type="date"] {{
-            border-radius: 8px;
-            border: 1px solid #cbd5e0;
-            padding: 8px;
-        }}
+        /* FOOTER */
+        .legal-footer {
+            margin-top: 50px;
+            padding: 20px;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            text-align: center;
+            font-size: 11px;
+            color: #718096;
+            font-family: 'Inter', sans-serif;
+        }
 
         #MainMenu, header, footer {{ visibility: hidden; }}
     </style>
@@ -271,7 +270,21 @@ if 'admin_logged_in' not in st.session_state: st.session_state.admin_logged_in =
 if 'is_partner_logged_in' not in st.session_state: st.session_state.is_partner_logged_in = False
 
 # ============================================================================
-# 5. VIEW: LOGIN SCREEN
+# 5. UI COMPONENT: SECURE FOOTER
+# ============================================================================
+
+def render_footer():
+    st.markdown("""
+    <div class="legal-footer">
+        <p><strong>🔒 NATUVISIO OPERATING SYSTEM | INTERNAL USE ONLY</strong></p>
+        <p>This platform and its data are strictly confidential. Unauthorized distribution to third parties is prohibited.</p>
+        <p>In case of system error, contact <strong>admin@natuvisio.com</strong> immediately.</p>
+        <p>© 2025 NATUVISIO Operations • Built for Speed, Science, and Trust</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================================
+# 6. VIEW: LOGIN SCREEN
 # ============================================================================
 
 def login_view():
@@ -314,9 +327,11 @@ def login_view():
                     st.rerun()
                 else:
                     st.error("Hatalı Marka Şifresi")
+    
+    render_footer()
 
 # ============================================================================
-# 6. VIEW: ADMIN DASHBOARD
+# 7. VIEW: ADMIN DASHBOARD
 # ============================================================================
 
 def admin_dashboard():
@@ -335,63 +350,65 @@ def admin_dashboard():
             st.rerun()
     st.markdown("---")
 
-    # --- DATE RANGE FILTER (NEW) ---
+    # --- DATE RANGE FILTER ---
     c_date1, c_date2, c_gap = st.columns([2, 2, 4])
     with c_date1:
         start_date = st.date_input("Başlangıç Tarihi", value=datetime.now() - timedelta(days=30))
     with c_date2:
         end_date = st.date_input("Bitiş Tarihi", value=datetime.now())
 
-    # --- METRICS ---
+    # --- METRICS & DATE FILTERING ---
     df_disp = get_db(CSV_DISPATCH)
     df_fin = get_db(CSV_FINANCE)
     
-    # Filter Data by Date
     if not df_disp.empty:
         df_disp['Time'] = pd.to_datetime(df_disp['Time'])
         mask = (df_disp['Time'].dt.date >= start_date) & (df_disp['Time'].dt.date <= end_date)
-        df_disp = df_disp.loc[mask]
+        df_disp_filtered = df_disp.loc[mask]
+    else:
+        df_disp_filtered = df_disp
         
     if not df_fin.empty:
         df_fin['Time'] = pd.to_datetime(df_fin['Time'])
         mask_f = (df_fin['Time'].dt.date >= start_date) & (df_fin['Time'].dt.date <= end_date)
-        df_fin = df_fin.loc[mask_f]
+        df_fin_filtered = df_fin.loc[mask_f]
+    else:
+        df_fin_filtered = df_fin
 
-    # Display Metrics
-    total_rev = df_fin['Total_Sale'].sum() if not df_fin.empty else 0
-    total_comm = df_fin['Commission_Amt'].sum() if not df_fin.empty else 0
+    total_rev = df_fin_filtered['Total_Sale'].sum() if not df_fin.empty else 0
+    total_comm = df_fin_filtered['Commission_Amt'].sum() if not df_fin.empty else 0
     pending_ops = len(df_disp[df_disp['Status'] == 'Pending']) if not df_disp.empty else 0
     
     m1, m2, m3, m4 = st.columns(4)
-    with m1: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{len(df_disp)}</div><div class='metric-label'>TOPLAM SİPARİŞ</div></div>", unsafe_allow_html=True)
+    with m1: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{len(df_disp_filtered)}</div><div class='metric-label'>TOPLAM SİPARİŞ</div></div>", unsafe_allow_html=True)
     with m2: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value'>{total_rev:,.0f}₺</div><div class='metric-label'>TOPLAM CİRO</div></div>", unsafe_allow_html=True)
     with m3: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#2f855a;'>{total_comm:,.0f}₺</div><div class='metric-label'>NET GELİR</div></div>", unsafe_allow_html=True)
     with m4: st.markdown(f"<div class='glass-card metric-container'><div class='metric-value' style='color:#c53030;'>{pending_ops}</div><div class='metric-label'>BEKLEYEN İŞLEM</div></div>", unsafe_allow_html=True)
 
-    # --- MARKALAR TRACKING TABLE (NEW) ---
+    # --- MARKALAR TRACKING TABLE (SYNCED & TIME-STAMPED) ---
     st.markdown("### 📊 Marka Performans Özeti")
     if not df_fin.empty:
-        # Group by Brand
         brand_stats = df_fin.groupby('Brand').agg({
             'Total_Sale': 'sum',
             'Commission_Amt': 'sum',
             'Payable_To_Brand': 'sum'
         }).reset_index()
         
-        # Calculate Unpaid Status
         unpaid_stats = df_fin[df_fin['Payment_Status'] == 'Unpaid'].groupby('Brand')['Payable_To_Brand'].sum().reset_index()
         unpaid_stats.columns = ['Brand', 'Bekleyen_Odeme']
         
         final_stats = pd.merge(brand_stats, unpaid_stats, on='Brand', how='left').fillna(0)
+        final_stats['Son Güncelleme'] = datetime.now().strftime('%H:%M:%S') # Live Snapshot
         
         st.dataframe(
             final_stats,
             column_config={
                 "Brand": "Marka",
                 "Total_Sale": st.column_config.NumberColumn("Toplam Satış", format="%d ₺"),
-                "Commission_Amt": st.column_config.NumberColumn("Natuvisio Komisyon", format="%d ₺"),
+                "Commission_Amt": st.column_config.NumberColumn("Komisyon", format="%d ₺"),
                 "Payable_To_Brand": st.column_config.NumberColumn("Toplam Hakediş", format="%d ₺"),
-                "Bekleyen_Odeme": st.column_config.NumberColumn("Ödenecek Tutar (Bekleyen)", format="%d ₺"),
+                "Bekleyen_Odeme": st.column_config.NumberColumn("Ödenecek (Bekleyen)", format="%d ₺"),
+                "Son Güncelleme": "Sistem Saati"
             },
             hide_index=True,
             use_container_width=True
@@ -439,11 +456,9 @@ def admin_dashboard():
             if st.button("➕ Sepete Ekle", key="dispatch_add_btn"):
                 p_data = PRODUCT_DB[act_brand][prod]
                 rate = BRAND_CONTRACTS[act_brand]["commission"]
-                
-                # Financial Calc
                 tot = p_data['price'] * qty
                 comm = tot * rate
-                kdv = comm * KDV_RATE # 20% KDV on Commission
+                kdv = comm * KDV_RATE 
                 deduction = comm + kdv
                 payable = tot - deduction
                 
@@ -509,13 +524,22 @@ def admin_dashboard():
                 st.info("Sepet boş.")
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- 2. SİPARİŞ TAKİBİ (Live View) ---
+    # --- 2. SİPARİŞ TAKİBİ (Live View with Approved Details) ---
     with tabs[1]:
         st.markdown("### 🔭 Aktif Sipariş Takibi")
         df = get_db(CSV_DISPATCH)
         if not df.empty:
-            active_df = df[df['Status'].isin(['Pending', 'Notified', 'Dispatched'])].sort_values("Time", ascending=False)
-            st.dataframe(active_df, use_container_width=True)
+            active_df = df[df['Status'].isin(['Pending', 'Notified', 'Dispatched', 'Completed'])].sort_values("Time", ascending=False)
+            
+            st.dataframe(
+                active_df,
+                use_container_width=True,
+                column_config={
+                    "Status": st.column_config.SelectboxColumn("Durum", options=['Pending', 'Notified', 'Dispatched', 'Completed'], disabled=True),
+                    "Tracking_Num": "Takip No",
+                    "WhatsApp_Sent": "Bildirim"
+                }
+            )
         else:
             st.info("Aktif sipariş bulunmuyor.")
 
@@ -523,8 +547,9 @@ def admin_dashboard():
     with tabs[2]:
         st.markdown("### ✅ Operasyon Merkezi")
         df = get_db(CSV_DISPATCH)
-        pending_ntf = df[df['WhatsApp_Sent'] == 'NO'].sort_values("Time", ascending=False)
         
+        # A. Notifications
+        pending_ntf = df[df['WhatsApp_Sent'] == 'NO'].sort_values("Time", ascending=False)
         if not pending_ntf.empty:
             st.warning(f"⚠️ {len(pending_ntf)} Sipariş Bildirim Bekliyor")
             for idx, row in pending_ntf.iterrows():
@@ -549,22 +574,53 @@ def admin_dashboard():
                         st.markdown(f'<a href="{link}" target="_blank" style="text-decoration:none;"><button style="background:#25D366 !important; border:none; color:white; padding:8px 16px; border-radius:4px;">📲 WhatsApp Mesajı Oluştur</button></a>', unsafe_allow_html=True)
         else:
             st.success("Tüm bildirimler tamamlandı.")
+            
+        st.markdown("---")
+        
+        # B. Manual Tracking Entry (NEW)
+        st.markdown("#### 📦 Manuel Kargo Girişi")
+        pending_ship = df[(df['Status'] == 'Notified') & (df['Tracking_Num'].isna() | (df['Tracking_Num'] == ''))]
+        
+        if not pending_ship.empty:
+            for idx, row in pending_ship.iterrows():
+                with st.expander(f"⏳ {row['Order_ID']} - {row['Brand']} (Kargo Bekliyor)"):
+                    c1, c2 = st.columns([3, 1])
+                    with c1:
+                        track_input = st.text_input("Takip Numarası", key=f"manual_track_{idx}")
+                    with c2:
+                        if st.button("Kaydet ve Kargola", key=f"manual_ship_{idx}"):
+                            if track_input:
+                                mask = df['Order_ID'] == row['Order_ID']
+                                df.loc[mask, 'Tracking_Num'] = track_input
+                                df.loc[mask, 'Status'] = 'Dispatched'
+                                update_db(CSV_DISPATCH, df)
+                                log_action("KARGO", "Admin", f"{row['Order_ID']} kargolandı: {track_input}")
+                                st.success("Kargo güncellendi!")
+                                st.rerun()
+                            else:
+                                st.error("Takip no giriniz.")
+        else:
+            st.info("Kargo bekleyen sipariş yok.")
 
     # --- 4. FATURA & ÖDEME (General) ---
     with tabs[3]:
         st.markdown("### 🏦 Genel Finansal Durum")
         fin_df = get_db(CSV_FINANCE)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="glass-card"><h5>Toplam Satış Hacmi</h5>', unsafe_allow_html=True)
-            st.metric("GMV", f"{fin_df['Total_Sale'].sum():,.0f} TL")
-            st.markdown("</div>", unsafe_allow_html=True)
-        with c2:
-            st.markdown('<div class="glass-card"><h5>Markalara Ödenecek Toplam</h5>', unsafe_allow_html=True)
-            # Only unpaid
-            unpaid_total = fin_df[fin_df['Payment_Status'] == 'Unpaid']['Payable_To_Brand'].sum()
-            st.metric("Bekleyen Ödeme", f"{unpaid_total:,.0f} TL")
-            st.markdown("</div>", unsafe_allow_html=True)
+        
+        if not fin_df.empty:
+            # Breakdown per Brand
+            st.markdown("#### Marka Bazlı Ödenecek Toplamlar")
+            unpaid_breakdown = fin_df[fin_df['Payment_Status'] == 'Unpaid'].groupby('Brand')['Payable_To_Brand'].sum()
+            
+            if not unpaid_breakdown.empty:
+                cols = st.columns(len(unpaid_breakdown))
+                for i, (brand, amount) in enumerate(unpaid_breakdown.items()):
+                    with cols[i]:
+                        st.metric(f"{brand} Ödenecek", f"{amount:,.0f} TL")
+            else:
+                st.success("Tüm ödemeler yapılmış.")
+        else:
+            st.info("Finansal veri yok.")
 
     # --- 5. MARKA ÖDEMELERİ (Payouts) ---
     with tabs[4]:
@@ -697,9 +753,13 @@ def admin_dashboard():
             t1, t2, t3, t4 = st.tabs(["MARKA", "TÜMÜ", "ÜRÜNLER", "KOMİSYON"])
             
             with t1:
-                st.bar_chart(df['Brand'].value_counts())
+                fig = px.pie(df, names='Brand', values='Total_Value', hole=0.5, color_discrete_sequence=['#4ECDC4', '#FF6B6B', '#95E1D3'])
+                st.plotly_chart(fig, use_container_width=True)
             with t2:
-                st.line_chart(df.groupby('Time')['Total_Value'].sum())
+                # Group by date for line chart
+                df['Date'] = pd.to_datetime(df['Time']).dt.date
+                daily_sales = df.groupby('Date')['Total_Value'].sum().reset_index()
+                st.line_chart(daily_sales.set_index('Date'))
             with t3:
                 st.info("Ürün bazlı detaylar için veritabanı genişletiliyor...")
             with t4:
@@ -737,6 +797,8 @@ def admin_dashboard():
             st.download_button("Ödemeleri İndir", convert_df(get_db(CSV_PAYOUTS)), "payouts.csv", "text/csv")
         with c4:
             st.download_button("Faturaları İndir", convert_df(get_db(CSV_INVOICES)), "invoices.csv", "text/csv")
+            
+    render_footer()
 
 # ============================================================================
 # 7. PARTNER DASHBOARD (Simplified View)
@@ -782,6 +844,8 @@ def partner_dashboard():
             
     with tabs[2]:
         st.info("Finansal detaylar için yönetici ile iletişime geçiniz.")
+    
+    render_footer()
 
 # ============================================================================
 # 8. EXECUTION ROUTER
